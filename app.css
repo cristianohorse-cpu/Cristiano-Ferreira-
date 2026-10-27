@@ -117,3 +117,7 @@ button.card{text-align:left;width:100%;border:1px solid transparent}
 .scroll{overflow-x:auto}
 .confirm{display:flex;gap:8px;flex-wrap:wrap}
 html{padding-top:env(safe-area-inset-top,0px)}
+
+.sec.gold{color:var(--warn-fg)}
+.card.aviso{border-color:var(--warn-line);background:var(--warn-soft)}
+.card.aviso .confirm{display:flex;gap:8px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap}

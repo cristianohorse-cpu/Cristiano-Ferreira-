@@ -65,6 +65,7 @@ async function carregar() {
     todos('pedido_itens'), todos('parcelas'), todos('cliente_variacao'), todos('nfs'), todos('nf_itens')]);
   S.clientes = cl; S.contatos = ct; S.prosp = pr; S.pedidos = pe; S.corr = co;
   S.itens = it; S.parcelas = pa; S.variacao = va; S.nfs = nf; S.nfItens = ni;
+  try { S.avisos = await todos('avisos'); } catch (e) { S.avisos = []; }
   if (S.papel === 'gestor' || S.papel === 'suporte') S.vendedores = await todos('vendedores');
   S.carregado = true;
 }
@@ -157,6 +158,20 @@ function telaSemAcesso() {
   return head(topo('<h1>Acesso ainda não liberado</h1>')) + `<div class="main"><div class="empty"><b>Seu e-mail ainda não está cadastrado no CRM</b><span>Peça ao Cristiano para liberar o seu acesso com este e-mail. Depois, entre de novo.</span></div><button class="btn ghost" data-act="sair">${svg('out', 18)} Sair</button></div>`;
 }
 
+/* ---------- avisos do Fernandinho ---------- */
+function avisosAbertos() { return (S.avisos || []).filter(a => a.status !== 'resolvido' && (!a.para || a.para === S.eu || veTudo())).sort((a, b) => (b.criado || '') > (a.criado || '') ? 1 : -1); }
+function blocoAvisos() {
+  const l = avisosAbertos(); if (!l.length) return '';
+  const tag = t => ({ cliente: 'Cliente', pedido: 'Pedido', entrega: 'Entrega', cadastro: 'Cadastro' })[t] || 'Aviso';
+  return `<div class="sec gold">🤖 Avisos do Fernandinho · ${l.length}</div>` + l.slice(0, 30).map(a => `<div class="card aviso"><div class="row"><span class="name">${esc(a.titulo)}</span><span class="tag p">${tag(a.tipo)}</span></div>
+    ${a.texto ? `<div class="txt">${esc(a.texto)}</div>` : ''}<div class="sub">${esc([a.para && veTudo() ? 'Para ' + titulo(a.para) : '', a.criado ? 'Desde ' + dm(String(a.criado).slice(0, 10)) : ''].filter(Boolean).join(' · '))}</div>
+    <div class="confirm">${a.pedido ? `<button class="btn ghost sm" data-act="pedido" data-ref="${a.pedido}">Ver pedido</button>` : ''}<button class="btn sm" data-act="avisook" data-ref="${esc(a.id)}">Resolvido</button></div></div>`).join('');
+}
+async function resolverAviso(id) {
+  const { error } = await sb.from('avisos').update({ status: 'resolvido', resolvido_por: S.eu, resolvido_em: new Date().toISOString() }).eq('id', id);
+  if (error) { toast('Não foi possível marcar. Tente de novo.'); return; }
+  const a = (S.avisos || []).find(x => x.id === id); if (a) a.status = 'resolvido'; toast('Aviso resolvido. Obrigado!');
+}
 function telaPend() {
   const all = pendencias(S.eu), h = hoje(), lim = addDias(7), f = S.filtro;
   const ok = p => f === 'todas' || (f === 'C' && p.tipo === 'C') || (f === 'P' && p.tipo !== 'C');
@@ -177,6 +192,7 @@ function telaPend() {
   return head(topo(`<div class="hi">${saud}, ${esc(primeiro(S.eu))}</div><h1>Pendências de hoje</h1>
     <div class="kpis"><div class="kpi"><strong>${nHj}</strong><span>para hoje</span></div><div class="kpi${nAtr ? ' bad' : ''}"><strong>${nAtr}</strong><span>atrasadas</span></div><div class="kpi gold"><strong>${nP}</strong><span>em prospecção</span></div></div>`)) +
   `<div class="main"><div class="chips" role="group" aria-label="Filtrar">${[['todas', 'Todas'], ['C', 'Carteira'], ['P', 'Prospecção e novos']].map(([k, t]) => `<button class="chip" data-act="filtro" data-v="${k}" aria-pressed="${f === k}">${t}</button>`).join('')}</div>
+  ${blocoAvisos()}
   ${(() => { const ea = itensAbertos(p => p.vendedor === S.eu).filter(x => x.s.atrasado); return ea.length ? `<div class="sec bad">Entregas atrasadas · ${ea.length}</div>` + ea.slice(0, 10).map(x => `<button class="card over" data-act="pedido" data-ref="${x.it.pedido}"><div class="row"><span class="name">${esc(nomeCli(x.p))}</span><span class="tag bad">Entrega ${dm(x.s.proxData)}</span></div><div class="txt">${esc(x.it.produto || '')} · saldo ${fmtQ(Math.max(x.s.saldo, 0))}</div><div class="sub">Pedido ${x.it.pedido} · O.F. ${esc(x.it.of)}</div></button>`).join('') : ''; })()}
   ${bloco('Atrasadas', atr, 'bad')}${bloco('Hoje', hj)}${bloco('Próximos 7 dias', prox)}
   ${vazio ? '<div class="empty"><b>Nada pendente por aqui</b><span>Ao registrar um contato com data de retorno, ele aparece nesta tela no dia marcado.</span></div>' : ''}
@@ -499,6 +515,7 @@ function telaEntregas() {
   const bloco = (t, a, cls) => a.length ? `<div class="sec ${cls || ''}">${t} · ${a.length}</div>` + a.map(linha).join('') : '';
   return head(topo(`<div class="hi">Itens com saldo a entregar</div><h1>Entregas</h1><div class="kpis"><div class="kpi${atr.length ? ' bad' : ''}"><strong>${atr.length}</strong><span>atrasadas</span></div><div class="kpi"><strong>${prox7.length}</strong><span>próximos 7 dias</span></div><div class="kpi gold"><strong>${baixa.length}</strong><span>confirmar baixa</span></div></div>`)) +
   `<div class="main"><div class="field"><label for="fvend">Vendedor</label><select id="fvend"><option value="">Todos</option>${vends.map(v => `<option value="${esc(v)}"${v === fv ? ' selected' : ''}>${esc(titulo(v))}</option>`).join('')}</select></div>
+   ${blocoAvisos()}
    ${bloco('Atrasadas', atr, 'bad')}${bloco('Confirmar baixa', baixa)}${bloco('Próximos 7 dias', prox7)}${bloco('Depois', depois)}
    ${!l.length ? '<div class="empty"><b>Nenhum item com saldo</b><span>Os itens entram com a importação do relatório de pedidos.</span></div>' : ''}
    <button class="btn ghost sm" data-act="sair" style="align-self:center">${svg('out', 16)} Sair</button></div>`;
@@ -668,6 +685,7 @@ document.addEventListener('click', async e => {
   else if (a === 'pedeexc') { S.confNF = b.dataset.ref; S._keep = true; render(); }
   else if (a === 'cancexc') { S.confNF = null; S._keep = true; render(); }
   else if (['frac', 'baixar', 'desfazbaixa', 'ligar', 'excnf', 'var', 'importxml'].includes(a)) { await acaoPedidos(a, b); }
+  else if (a === 'avisook') { await resolverAviso(b.dataset.ref); }
   else if (a === 'filtro') { S.filtro = v; S._keep = true; render(); }
   else if (a === 'ordem') { S.ordem = v; S._keep = true; render(); }
   else if (a === 'abrir') ir({ t: 'ficha', tipo: b.dataset.tipo, ref: b.dataset.ref, resp: b.dataset.resp });
