@@ -68,7 +68,7 @@ async function carregar() {
   S.itens = it; S.parcelas = pa; S.variacao = va; S.nfs = nf; S.nfItens = ni;
   try { S.avisos = await todos('avisos'); } catch (e) { S.avisos = []; }
   if (S.papel === 'gestor' || S.papel === 'suporte') S.vendedores = await todos('vendedores');
-  if (S.papel === 'gestor') { try { S.prog = await todos('programacao'); } catch (e) { S.prog = []; } }
+  if (S.papel === 'gestor') { try { S.prog = await todos('programacao'); } catch (e) { S.prog = []; } try { S.real = await todos('programacao_real'); } catch (e) { S.real = []; } }
   S.carregado = true;
 }
 const gestor = () => S.papel === 'gestor';
@@ -533,6 +533,7 @@ const capDia = d => new Date(d + 'T12:00').getDay() === 5 ? 480 : 540;
 const avisosOp = o => String(o.avisos || '').split(' · ').filter(a => a && a !== '–');
 function tagsOp(o) { return avisosOp(o).map(t => `<span class="tag${t === 'Atrasada' ? ' bad' : t.startsWith('Prioridade') ? ' ok' : t === 'Conferir MP' ? ' p' : ''}">${esc(t)}</span>`).join(''); }
 function itemDaOF(of) { return S.itens.find(i => String(i.of) === String(of)); }
+const realOp = o => (S.real || []).find(r => r.maquina === o.maquina && r.ofn === o.ofn);
 function cartaoOp(o, comMaq) {
   const it = itemDaOF(o.ofn), fimD = o.data_fim !== o.data_ini ? ' (' + dSem(o.data_fim) + ')' : '';
   const det = ['F.T. ' + (o.ft || '–')];
@@ -543,7 +544,7 @@ function cartaoOp(o, comMaq) {
    <div class="txt">${esc(o.referencia)} · ${fmtQ(o.qtde)} un.</div>
    ${comMaq ? `<div class="sub"><b>${esc(o.maquina)}</b> · ${esc(o.ini)} até ${esc(o.fim)}${esc(fimD)}</div>` : fimD ? `<div class="sub">Termina em ${esc(dSem(o.data_fim))}</div>` : ''}
    <div class="sub">Entrega ${o.entrega ? dSem(o.entrega) : 'sem data'}${it ? ` · Pedido ${esc(it.pedido)}` : ''}${o.he_min ? ` · <b>${hMin(o.he_min)} de hora extra</b>` : ''}</div>
-   <div class="sub">${esc(det.join(' · '))}</div>${tagsOp(o) ? `<div class="chips-t">${tagsOp(o)}</div>` : ''}</div></div></div>`;
+   <div class="sub">${esc(det.join(' · '))}</div>${realOp(o) ? `<div class="sub"><b>Teste:</b> ${esc(realOp(o).ini)}${realOp(o).fim ? ' até ' + esc(realOp(o).fim) + ' · ' + realOp(o).real_min + ' min de ' + realOp(o).prev + ' previstos' : ' · em aberto'}</div>` : ''}${tagsOp(o) ? `<div class="chips-t">${tagsOp(o)}</div>` : ''}</div></div></div>`;
 }
 function telaProg() {
   const l = progAtual();
@@ -565,9 +566,17 @@ function telaProg() {
   return head(topoH) + `<div class="main"><div class="chips">${dias.map(d => `<button class="chip" data-act="pdia" data-v="${d}" aria-pressed="${d === dia}">${dSem(d)}</button>`).join('')}</div>
    ${dia < hoje() ? '<div class="alert"><span class="lbl">DIA QUE JÁ PASSOU</span><span class="txt">Estas linhas ficam só para conferir se foram produzidas.</span></div>' : ''}
    ${Object.values(heMaq).some(j => j.dia === dia) ? `<div class="alert"><span class="lbl">HORA EXTRA · ${dSem(dia)}</span>${Object.entries(heMaq).filter(([, j]) => j.dia === dia).map(([m, j]) => `<span class="txt">${esc(m)}: 16:40 às ${pad(Math.floor(j.fim / 60))}:${pad(j.fim % 60)} (${hMin(j.fim - 1000)})</span>`).join('')}</div>` : ''}
+   ${(S.real || []).length ? `<button class="card" data-act="preal"><div class="row"><span class="name">Realizado no teste</span><b class="num">${(S.real || []).length} registros</b></div><div class="sub">Tempos do celular do Rogério, com máquina, O.F. e previsto × real.</div></button>` : ''}
    <div class="sec">Carga por máquina · ${dSem(dia)}</div>
    ${cards.map(c => { const pct = Math.round(c.min / cap * 100), st = c.ops.find(o => avisosOp(o).some(t => t.startsWith('Prioridade'))); return `<button class="card" data-act="pmaq" data-ref="${esc(c.m)}"><div class="row"><span class="name">${esc(c.m)}</span><b class="num">${hMin(c.min)}</b></div><div class="barra" role="img" aria-label="${pct}% das horas do dia"><i class="${pct > 100 ? 'bad' : pct >= 80 ? 'warn' : ''}" style="width:${Math.min(pct, 100)}%"></i></div><div class="sub">${c.ops.length} ${c.ops.length === 1 ? 'operação' : 'operações'} · ${pct}% do turno${st ? ' · tem Stanley prioritária' : ''}</div></button>`; }).join('')}
    <button class="btn ghost sm" data-act="sair" style="align-self:center">${svg('out', 16)} Sair</button></div>`;
+}
+function telaProgReal() {
+  const l = (S.real || []).slice().sort((a, b) => (a.maquina + a.ini > b.maquina + b.ini ? 1 : -1)), fim = l.filter(r => r.fim);
+  const prev = fim.reduce((s, r) => s + (r.prev || 0), 0), real = fim.reduce((s, r) => s + (r.real_min || 0), 0), par = l.reduce((s, r) => s + (r.parado || 0), 0), lote = l.length ? l[0].lote : '';
+  const maqs = [...new Set(l.map(r => r.maquina))];
+  return head(`${voltar()}<div class="hi">Teste · dados recebidos em ${esc(dm(lote.slice(0, 10)))} às ${esc(lote.slice(11))}</div><h1>Realizado no teste</h1><div class="kpis"><div class="kpi"><strong>${fim.length}/${l.length}</strong><span>finalizadas</span></div><div class="kpi"><strong>${prev}×${real}</strong><span>previsto × real (min)</span></div><div class="kpi gold"><strong>${par}</strong><span>min parados</span></div></div>`) +
+  `<div class="main"><div class="alert"><span class="txt">Só o que foi registrado no celular de teste, atualizado quando os registros são enviados. Ajudam no estudo de tempos, não medem a operação inteira.</span></div>${maqs.map(m => `<div class="sec">${esc(m)}</div>` + l.filter(r => r.maquina === m).map(r => `<div class="card"><div class="row"><span class="name">O.F. ${esc(r.ofn)} · ${esc(r.cliente)}</span><b class="num">${r.fim ? r.real_min + ' / ' + r.prev + ' min' : 'Em aberto'}</b></div><div class="sub">Ajuste ${esc(r.ini)} · produção ${esc(r.prod)}${r.fim ? ' · fim ' + esc(r.fim) : ''}${r.qtde != null ? ' · ' + fmtQ(r.qtde) + ' un.' : ''}${r.parado ? ' · ' + r.parado + ' min parado' : ''}</div>${r.motivos ? `<div class="sub">${esc(r.motivos)}</div>` : ''}</div>`).join('')).join('')}</div>`;
 }
 function telaProgMaq(m) {
   const ops = progAtual().filter(o => o.maquina === m).sort((a, b) => a.ordem - b.ordem);
@@ -703,6 +712,7 @@ function render() {
     else if (v && v.t === 'nf') html = telaNF(v.ref);
     else if (v && v.t === 'nfmanual') html = telaNFManual();
     else if (v && v.t === 'pmaq') html = telaProgMaq(v.ref);
+    else if (v && v.t === 'preal') html = telaProgReal();
     else html = ({ pend: telaPend, cart: telaCarteira, busca: telaBusca, ped: telaPedidos, num: gestor() ? telaEquipe : telaNumeros, entregas: telaEntregas, nfs: telaNFs, prog: gestor() ? telaProg : telaPend })[S.tab]();
     const abas = suporte() ? [['entregas', 'truck', 'Entregas'], ['ped', 'box', 'Pedidos'], ['nfs', 'doc', 'Notas fiscais']]
       : [['pend', 'cal', 'Pendências'], ['cart', 'users', 'Carteira'], ['busca', 'search', 'Buscar'], ['ped', 'box', 'Pedidos'], ['num', 'chart', gestor() ? 'Equipe' : 'Números']].concat(gestor() ? [['prog', 'cog', 'PCP']] : []);
@@ -731,6 +741,7 @@ document.addEventListener('click', async e => {
   else if (a === 'fped') { S.fped = v; S._keep = true; render(); }
   else if (a === 'pdia') { S.pdia = v; S._keep = true; render(); }
   else if (a === 'pmaq') ir({ t: 'pmaq', ref: b.dataset.ref });
+  else if (a === 'preal') ir({ t: 'preal' });
   else if (a === 'pedido') ir({ t: 'pedido', ref: b.dataset.ref });
   else if (a === 'fichacli') ir({ t: 'ficha', tipo: 'C', ref: b.dataset.ref, resp: v });
   else if (a === 'nf') ir({ t: 'nf', ref: b.dataset.ref });
