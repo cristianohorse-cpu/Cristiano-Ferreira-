@@ -121,3 +121,5 @@ html{padding-top:env(safe-area-inset-top,0px)}
 .sec.gold{color:var(--warn-fg)}
 .card.aviso{border-color:var(--warn-line);background:var(--warn-soft)}
 .card.aviso .confirm{display:flex;gap:8px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap}
+.barra{height:8px;border-radius:4px;background:var(--chip);overflow:hidden}.barra i{display:block;height:100%;background:var(--petrol)}.barra i.warn{background:var(--gold)}.barra i.bad{background:var(--bad)}
+.chips-t{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
