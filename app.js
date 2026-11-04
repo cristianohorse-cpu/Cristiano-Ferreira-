@@ -174,6 +174,17 @@ async function resolverAviso(id) {
   if (error) { toast('Não foi possível marcar. Tente de novo.'); return; }
   const a = (S.avisos || []).find(x => x.id === id); if (a) a.status = 'resolvido'; toast('Aviso resolvido. Obrigado!');
 }
+/* ---------- como funciona ---------- */
+function telaAjuda() {
+  const bl = (t, l) => `<div class="card"><div class="name" style="margin-bottom:6px">${t}</div>${l.map(x => `<div class="txt">• ${x}</div>`).join('')}</div>`;
+  return head(`${voltar()}<div class="hi">Guia rápido do piloto</div><h1>Como funciona o app</h1>`) + `<div class="main">
+  ${bl('📱 Instalar no celular', ['Android (Chrome): menu ⋮ → “Adicionar à tela inicial”.', 'iPhone (Safari): Compartilhar → “Adicionar à Tela de Início”.'])}
+  ${bl('🗂️ As abas', ['<b>Pendências</b>: retornos de hoje, atrasados, próximos 7 dias, entregas atrasadas e avisos.', '<b>Carteira</b>: seus clientes. “Corrigir” envia ajuste de cadastro ao Cristiano.', '<b>Buscar</b>: antes de prospectar, veja se a empresa já é cliente ou se alguém já prospecta. Prefira o CNPJ.', '<b>Pedidos</b>: pedidos e O.F.s com saldo, entrega e notas. Em <b>📅 A faturar por data</b> você escolhe o período (ou as datas “de” e “até”) e vê as O.F.s que ainda faltam faturar, dia a dia.', '<b>Números</b>: vendas do mês.'])}
+  ${bl('📦 Situação das O.F.s', ['<b>Em aberto</b>: nada faturado.', '<b>Parcial</b>: parte faturada.', '<b>Atendido · confirmar baixa</b>: dentro da tolerância de ±10%; a Carla confirma.', '<b>Concluído / Baixado</b>: entregue.', '<b>Atrasado</b>: passou da data com saldo.'])}
+  ${bl('🤖 Fernandinho', ['Nos dias úteis, de hora em hora, lê as notas fiscais e liga cada uma à O.F. (cliente + FT + data).', 'Kits: vale a O.F. mãe (C/ Acessório); as filhas seguem a mãe.', 'Avisos aparecem no topo. Confira, corrija e só depois toque em <b>Resolvido</b>.'])}
+  ${bl('📌 Observações do piloto', ['A <b>planilha continua oficial</b>: contatos e prospecções são lançados nela.', 'Não lance em dois lugares.', 'Senha é pessoal; não passe para colegas.', 'Em computador de uso comum, toque em <b>Sair</b> no fim do dia.', 'Não mande print de carteira para fora da Fermani.', 'Viu algo errado? Mande um print ao Cristiano.'])}
+  </div>`;
+}
 function telaPend() {
   const all = pendencias(S.eu), h = hoje(), lim = addDias(7), f = S.filtro;
   const ok = p => f === 'todas' || (f === 'C' && p.tipo === 'C') || (f === 'P' && p.tipo !== 'C');
@@ -198,7 +209,7 @@ function telaPend() {
   ${(() => { const ea = itensAbertos(p => p.vendedor === S.eu).filter(x => x.s.atrasado); return ea.length ? `<div class="sec bad">Entregas atrasadas · ${ea.length}</div>` + ea.slice(0, 10).map(x => `<button class="card over" data-act="pedido" data-ref="${x.it.pedido}"><div class="row"><span class="name">${esc(nomeCli(x.p))}</span><span class="tag bad">Entrega ${dm(x.s.proxData)}</span></div><div class="txt">${esc(x.it.produto || '')} · saldo ${fmtQ(Math.max(x.s.saldo, 0))}</div><div class="sub">Pedido ${x.it.pedido} · O.F. ${esc(x.it.of)}</div></button>`).join('') : ''; })()}
   ${bloco('Atrasadas', atr, 'bad')}${bloco('Hoje', hj)}${bloco('Próximos 7 dias', prox)}
   ${vazio ? '<div class="empty"><b>Nada pendente por aqui</b><span>Ao registrar um contato com data de retorno, ele aparece nesta tela no dia marcado.</span></div>' : ''}
-  <button class="btn ghost sm" data-act="sair" style="align-self:center">${svg('out', 16)} Sair</button></div>`;
+  <button class="btn ghost sm" data-act="ajuda" style="align-self:center">❓ Como funciona o app</button><button class="btn ghost sm" data-act="sair" style="align-self:center">${svg('out', 16)} Sair</button></div>`;
 }
 
 function telaCarteira() {
@@ -447,13 +458,50 @@ function telaPedidos() {
   return head(topo(cabecalhoMes(n.tot, n.pm.length, n.totAnt, veTudo() ? 'Pedidos' : 'Meus pedidos')) +
     `<div class="search"><input id="qped" type="search" placeholder="Cliente ou nº do pedido" value="${esc(S.qped || '')}" aria-label="Filtrar pedidos"></div>`) +
   `<div class="main">${veTudo() ? `<div class="field"><label for="fvend">Vendedor</label><select id="fvend"><option value="">Todos</option>${vends.map(v => `<option value="${esc(v)}"${v === fv ? ' selected' : ''}>${esc(titulo(v))}</option>`).join('')}</select></div>` : ''}
-   <div class="chips" role="group" aria-label="Filtrar">${[['todos', 'Todos'], ['abertos', 'Com saldo'], ['atrasados', 'Atrasados']].map(([k, t]) => `<button class="chip" data-act="fped" data-v="${k}" aria-pressed="${fs === k}">${t}</button>`).join('')}</div>
-   <div class="sub">${ls.length} pedidos</div>
+   <div class="chips" role="group" aria-label="Filtrar">${[['todos', 'Todos'], ['abertos', 'Com saldo'], ['atrasados', 'Atrasados'], ['afat', '📅 A faturar por data']].map(([k, t]) => `<button class="chip" data-act="fped" data-v="${k}" aria-pressed="${fs === k}">${t}</button>`).join('')}</div>
+   ${fs === 'afat' ? blocoAFaturar(fv, q) + '</div>' : `<div class="sub">${ls.length} pedidos</div>
    ${ls.slice(0, 200).map(x => { const tot = x.its.reduce((s, i) => s + i.qtd, 0), fat = x.its.reduce((s, i) => s + Math.min(i.fat, i.qtd), 0);
      return `<button class="card${x.atr ? ' over' : ''}" data-act="pedido" data-ref="${x.p.numero}"><div class="row"><span class="name">${esc(nomeCli(x.p))}</span><b class="num">${brl(x.p.valor)}</b></div>
      <div class="sub">Pedido ${x.p.numero} · ${dm(x.p.data)}${veTudo() ? ' · ' + esc(primeiro(x.p.vendedor)) : ''} · ${x.its.length ? x.its.length + (x.its.length === 1 ? ' item' : ' itens') : 'sem itens'}</div>
      ${x.its.length ? barra(fat, tot) + `<div class="row sub"><span>${x.atr ? '<b style="color:var(--bad)">Entrega atrasada</b>' : x.baixa ? 'Confirmar baixa' : x.aberto ? 'Com saldo a entregar' : 'Atendido'}</span><span>${fmtQ(fat)} de ${fmtQ(tot)}</span></div>` : `<div class="sub">${x.p.data >= '2026-10-01' ? 'Pedido sem itens no relatório' : 'Itens disponíveis a partir de outubro/2026'}</div>`}</button>`; }).join('')}
-   ${!ls.length ? '<div class="empty"><b>Nenhum pedido aqui</b></div>' : ''}</div>`;
+   ${!ls.length ? '<div class="empty"><b>Nenhum pedido aqui</b></div>' : ''}</div>`}`;
+}
+
+/* ---------- pendências de faturamento por data (O.F.s com saldo a entregar) ---------- */
+const fimMes = () => { const d = new Date(); return iso(new Date(d.getFullYear(), d.getMonth() + 1, 0)); };
+const iniMes = () => hoje().slice(0, 8) + '01';
+const PERIODOS = [['atr', 'Atrasadas'], ['sem', 'Próx. 7 dias'], ['15', 'Próx. 15 dias'], ['mes', 'Este mês'], ['tudo', 'Tudo']];
+function periodo(k) {
+  const h = hoje();
+  return ({ atr: ['', addDias(-1)], sem: [h, addDias(7)], '15': [h, addDias(15)], mes: [iniMes(), fimMes()], tudo: ['', ''] })[k] || ['', ''];
+}
+function blocoAFaturar(fv, q) {
+  const de = S.afDe || '', ate = S.afAte || '', h = hoje();
+  const dono = p => veTudo() ? (!fv || p.vendedor === fv) : p.vendedor === S.eu;
+  let l = itensAbertos(dono).filter(x => x.s.aberto)
+    .filter(x => !q || norm(nomeCli(x.p)).includes(q) || norm(x.p.cliente || '').includes(q) || String(x.it.pedido).includes(q) || String(x.it.of).includes(q))
+    .map(x => { const saldo = Math.max(x.s.saldo, 0), kg = x.s.qtd ? (Number(x.it.kg) || 0) * saldo / x.s.qtd : 0;
+      return Object.assign(x, { d: x.s.proxData || x.it.entrega || '9999', saldo, kgp: kg, vp: kg * (Number(x.p.pm) || 0) }); })
+    .filter(x => (!de || x.d >= de) && (!ate || x.d <= ate))
+    .sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.it.pedido - b.it.pedido);
+  const tv = l.reduce((s, x) => s + x.vp, 0), tk = l.reduce((s, x) => s + x.kgp, 0), na = l.filter(x => x.s.atrasado).length;
+  const grupos = []; l.forEach(x => { const g = grupos[grupos.length - 1]; if (g && g.d === x.d) g.l.push(x); else grupos.push({ d: x.d, l: [x] }); });
+  const perAtivo = (PERIODOS.find(([k]) => { const [a, b] = periodo(k); return a === de && b === ate; }) || [])[0];
+  return `<div class="card" style="gap:10px"><div class="h2">Pendências de faturamento</div>
+    <div class="sub">O.F.s com saldo a entregar, pela data de entrega prevista.</div>
+    <div class="chips" role="group" aria-label="Período">${PERIODOS.map(([k, t]) => `<button class="chip" data-act="afper" data-v="${k}" aria-pressed="${perAtivo === k}" style="height:32px;font-size:12px">${t}</button>`).join('')}</div>
+    <div class="row" style="gap:8px"><div class="field" style="flex:1;min-width:0"><label for="afde">Entrega de</label><input id="afde" type="date" value="${esc(de)}"></div>
+    <div class="field" style="flex:1;min-width:0"><label for="afate">até</label><input id="afate" type="date" value="${esc(ate)}"></div></div></div>
+   <div class="kpis"><div class="kpi" style="background:var(--chip)"><strong style="color:var(--petrol)">${l.length}</strong><span style="color:var(--muted)">O.F.s a faturar</span></div>
+    <div class="kpi" style="background:var(--chip)"><strong style="color:var(--petrol);font-size:17px;white-space:nowrap">${brl(tv)}</strong><span style="color:var(--muted)">valor aprox.</span></div>
+    <div class="kpi" style="background:${na ? 'var(--bad-soft)' : 'var(--chip)'}"><strong style="color:${na ? 'var(--bad)' : 'var(--petrol)'}">${na}</strong><span style="color:var(--muted)">atrasadas</span></div></div>
+   <div class="sub">${fmtQ(Math.round(tk))} kg a faturar${de || ate ? ` · entrega ${de ? 'de ' + dmy(de) : ''}${ate ? ' até ' + dmy(ate) : ''}` : ' · todas as datas'}</div>
+   ${grupos.map(g => `<div class="sec${g.d !== '9999' && g.d < h ? ' bad' : ''}">${g.d === '9999' ? 'Sem data' : dmy(g.d) + ' · ' + semana(g.d)}${g.d !== '9999' && g.d < h ? ' · atrasada há ' + diasEntre(g.d, h) + 'd' : ''} · ${g.l.length}</div>` +
+     g.l.map(x => `<button class="card${x.s.atrasado ? ' over' : ''}" data-act="pedido" data-ref="${x.it.pedido}"><div class="row"><span class="name">${esc(nomeCli(x.p))}</span>${chipSit(x.s)}</div>
+     <div class="txt">${esc(x.it.produto || '')} · falta ${fmtQ(x.saldo)} de ${fmtQ(x.s.qtd)}</div>
+     <div class="row sub"><span>Pedido ${x.it.pedido} · O.F. ${esc(x.it.of)}${veTudo() ? ' · ' + esc(primeiro(x.p.vendedor)) : ''}${x.it.fracionado ? ' · fracionada' : ''}</span><span>${x.vp ? '≈ ' + brl(x.vp) : ''}</span></div></button>`).join('')).join('')}
+   ${!l.length ? '<div class="empty"><b>Nada a faturar neste período</b><span>Troque as datas ou toque em “Tudo”.</span></div>' : ''}
+   <p class="note">Valor aproximado: peso que falta × preço médio por kg do pedido. A data é a da próxima entrega (ou a parcela, se a entrega for fracionada).</p>`;
 }
 
 /* ---------- um pedido ---------- */
@@ -520,7 +568,7 @@ function telaEntregas() {
    ${blocoAvisos()}
    ${bloco('Atrasadas', atr, 'bad')}${bloco('Confirmar baixa', baixa)}${bloco('Próximos 7 dias', prox7)}${bloco('Depois', depois)}
    ${!l.length ? '<div class="empty"><b>Nenhum item com saldo</b><span>Os itens entram com a importação do relatório de pedidos.</span></div>' : ''}
-   <button class="btn ghost sm" data-act="sair" style="align-self:center">${svg('out', 16)} Sair</button></div>`;
+   <button class="btn ghost sm" data-act="ajuda" style="align-self:center">❓ Como funciona o app</button><button class="btn ghost sm" data-act="sair" style="align-self:center">${svg('out', 16)} Sair</button></div>`;
 }
 
 /* ---------- programação do PCP (só gestor, teste) ---------- */
@@ -711,6 +759,7 @@ function render() {
     else if (v && v.t === 'parcelas') html = telaParcelas(v.ref);
     else if (v && v.t === 'nf') html = telaNF(v.ref);
     else if (v && v.t === 'nfmanual') html = telaNFManual();
+    else if (v && v.t === 'ajuda') html = telaAjuda();
     else if (v && v.t === 'pmaq') html = telaProgMaq(v.ref);
     else if (v && v.t === 'preal') html = telaProgReal();
     else html = ({ pend: telaPend, cart: telaCarteira, busca: telaBusca, ped: telaPedidos, num: gestor() ? telaEquipe : telaNumeros, entregas: telaEntregas, nfs: telaNFs, prog: gestor() ? telaProg : telaPend })[S.tab]();
@@ -739,6 +788,7 @@ document.addEventListener('click', async e => {
   if (a === 'tab') { S.tab = v; S.view = null; S.hist = []; window.scrollTo(0, 0); render(); }
   else if (a === 'irtab') { S.tab = v; S.view = null; S.hist = []; window.scrollTo(0, 0); render(); }
   else if (a === 'fped') { S.fped = v; S._keep = true; render(); }
+  else if (a === 'afper') { [S.afDe, S.afAte] = periodo(v); S._keep = true; render(); }
   else if (a === 'pdia') { S.pdia = v; S._keep = true; render(); }
   else if (a === 'pmaq') ir({ t: 'pmaq', ref: b.dataset.ref });
   else if (a === 'preal') ir({ t: 'preal' });
@@ -755,6 +805,7 @@ document.addEventListener('click', async e => {
   else if (a === 'cancexc') { S.confNF = null; S._keep = true; render(); }
   else if (['frac', 'baixar', 'desfazbaixa', 'ligar', 'excnf', 'var', 'importxml'].includes(a)) { await acaoPedidos(a, b); }
   else if (a === 'avisook') { await resolverAviso(b.dataset.ref); }
+  else if (a === 'ajuda') ir({ t: 'ajuda' });
   else if (a === 'filtro') { S.filtro = v; S._keep = true; render(); }
   else if (a === 'ordem') { S.ordem = v; S._keep = true; render(); }
   else if (a === 'abrir') ir({ t: 'ficha', tipo: b.dataset.tipo, ref: b.dataset.ref, resp: b.dataset.resp });
@@ -780,6 +831,7 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('change', async e => {
   if (e.target.id === 'fvend') { S.fvend = e.target.value; S._keep = true; render(); return; }
+  if (e.target.id === 'afde' || e.target.id === 'afate') { S.afDe = val('afde'); S.afAte = val('afate'); S._keep = true; render(); return; }
   if (e.target.id === 'nm_ped') { S.form.num = val('nm_num'); S.form.data = val('nm_data'); S.form.pedido = val('nm_ped'); S._keep = true; render(); return; }
   if (e.target.id === 'vpct') { await acaoPedidos('vpct', e.target); return; }
   if (e.target.id === 'p_nome' || e.target.id === 'p_cnpj') {
