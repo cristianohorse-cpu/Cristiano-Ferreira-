@@ -68,7 +68,8 @@ async function carregar() {
   S.itens = it; S.parcelas = pa; S.variacao = va; S.nfs = nf; S.nfItens = ni;
   try { S.avisos = await todos('avisos'); } catch (e) { S.avisos = []; }
   if (S.papel === 'gestor' || S.papel === 'suporte') S.vendedores = await todos('vendedores');
-  if (S.papel === 'gestor') { try { S.prog = await todos('programacao'); } catch (e) { S.prog = []; } try { S.real = await todos('programacao_real'); } catch (e) { S.real = []; } }
+  if (S.papel === 'gestor' || S.papel === 'suporte') { try { S.prog = await todos('programacao'); } catch (e) { S.prog = []; } }
+  if (S.papel === 'gestor') { try { S.real = await todos('programacao_real'); } catch (e) { S.real = []; } }
   S.carregado = true;
 }
 const gestor = () => S.papel === 'gestor';
@@ -596,7 +597,7 @@ function cartaoOp(o, comMaq) {
 }
 function telaProg() {
   const l = progAtual();
-  if (!l.length) return head(topo('<div class="hi">Teste só para o gestor</div><h1>Programação</h1>')) + '<div class="main"><div class="empty"><b>Programação ainda não carregada</b><span>Rode o arquivo SQL no Supabase e recarregue a página.</span></div></div>';
+  if (!l.length) return head(topo('<div class="hi">Teste · gestor e suporte</div><h1>Programação</h1>')) + '<div class="main"><div class="empty"><b>Programação ainda não carregada</b><span>Rode o arquivo SQL no Supabase e recarregue a página.</span></div></div>';
   const dias = progDias(l), dia = progDia(dias), qq = norm(S.qprog || '');
   const porOF = {}; l.forEach(o => (porOF[o.ofn] = porOF[o.ofn] || []).push(o));
   const atr = Object.values(porOF).filter(v => v[0].entrega && v.some(o => o.data_fim > o.entrega)).length;
@@ -764,8 +765,8 @@ function render() {
     else if (v && v.t === 'ajuda') html = telaAjuda();
     else if (v && v.t === 'pmaq') html = telaProgMaq(v.ref);
     else if (v && v.t === 'preal') html = telaProgReal();
-    else html = ({ pend: telaPend, cart: telaCarteira, busca: telaBusca, ped: telaPedidos, num: gestor() ? telaEquipe : telaNumeros, entregas: telaEntregas, nfs: telaNFs, prog: gestor() ? telaProg : telaPend })[S.tab]();
-    const abas = suporte() ? [['entregas', 'truck', 'Entregas'], ['ped', 'box', 'Pedidos'], ['nfs', 'doc', 'Notas fiscais']]
+    else html = ({ pend: telaPend, cart: telaCarteira, busca: telaBusca, ped: telaPedidos, num: gestor() ? telaEquipe : telaNumeros, entregas: telaEntregas, nfs: telaNFs, prog: veTudo() ? telaProg : telaPend })[S.tab]();
+    const abas = suporte() ? [['entregas', 'truck', 'Entregas'], ['ped', 'box', 'Pedidos'], ['nfs', 'doc', 'Notas fiscais'], ['prog', 'cog', 'PCP']]
       : [['pend', 'cal', 'Pendências'], ['cart', 'users', 'Carteira'], ['busca', 'search', 'Buscar'], ['ped', 'box', 'Pedidos'], ['num', 'chart', gestor() ? 'Equipe' : 'Números']].concat(gestor() ? [['prog', 'cog', 'PCP']] : []);
     $nav.style.gridTemplateColumns = `repeat(${abas.length},minmax(0,1fr))`;
     $nav.innerHTML = abas.map(([k, i, t]) => `<button data-act="tab" data-v="${k}"${!v && S.tab === k ? ' aria-current="page"' : ''}>${svg(i)}${t}</button>`).join('');
