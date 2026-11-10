@@ -301,7 +301,7 @@ function telaAcessos() {
   const l = S.vendedores.slice().sort((a, b) => a.nome < b.nome ? -1 : 1);
   return head(`${voltar()}<div class="hi">Quem pode entrar no app</div><h1>Acessos da equipe</h1>`) +
   `<form class="main" id="facessos"><p class="sub">Coloque o e-mail de cada pessoa. No primeiro acesso, ela entra com esse e-mail em "Primeiro acesso? Criar senha". Sem e-mail, a pessoa não entra.</p>
-   ${l.map((v, i) => `<div class="card"><div class="row"><span class="name">${esc(titulo(v.nome))}</span><span class="tag${v.papel !== 'vendedor' ? ' p' : ''}">${v.papel === 'gestor' ? 'Gestor' : v.papel === 'suporte' ? 'Suporte' : 'Vendedor'}</span></div>
+   ${l.map((v, i) => `<div class="card"><div class="row"><span class="name">${esc(titulo(v.nome))}</span><span class="tag${v.papel !== 'vendedor' ? ' p' : ''}">${v.papel === 'gestor' ? 'Gestor' : v.papel === 'suporte' ? 'Suporte' : v.papel === 'fabrica' ? 'Fábrica' : v.papel === 'tecnico' ? 'Técnico' : 'Vendedor'}</span></div>
      <div class="field"><label for="ac_${i}">E-mail</label><input id="ac_${i}" type="email" data-nome="${esc(v.nome)}" value="${esc(v.email || '')}" placeholder="nome@fermani.com.br"></div>
      <label class="sub" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="at_${i}" ${v.ativo ? 'checked' : ''}> Acesso liberado</label></div>`).join('')}
    <button class="btn" type="submit">Salvar acessos</button></form>`;
@@ -615,6 +615,7 @@ function telaProg() {
   return head(topoH) + `<div class="main"><div class="chips">${dias.map(d => `<button class="chip" data-act="pdia" data-v="${d}" aria-pressed="${d === dia}">${dSem(d)}</button>`).join('')}</div>
    ${dia < hoje() ? '<div class="alert"><span class="lbl">DIA QUE JÁ PASSOU</span><span class="txt">Estas linhas ficam só para conferir se foram produzidas.</span></div>' : ''}
    ${Object.values(heMaq).some(j => j.dia === dia) ? `<div class="alert"><span class="lbl">HORA EXTRA · ${dSem(dia)}</span>${Object.entries(heMaq).filter(([, j]) => j.dia === dia).map(([m, j]) => `<span class="txt">${esc(m)}: 16:40 às ${pad(Math.floor(j.fim / 60))}:${pad(j.fim % 60)} (${hMin(j.fim - 1000)})</span>`).join('')}</div>` : ''}
+   ${S.papel === 'gestor' ? `<a class="card" href="tecnico.html" style="display:block;text-decoration:none;color:inherit"><div class="row"><span class="name">Fábrica agora e consulta técnica</span><b class="num">abrir</b></div><div class="sub">Apontamentos do app da fábrica em tempo real, busca por O.F., F.T. e máquina.</div></a>` : ''}
    ${(S.real || []).length ? `<button class="card" data-act="preal"><div class="row"><span class="name">Realizado no teste</span><b class="num">${(S.real || []).length} registros</b></div><div class="sub">Tempos do celular do Rogério, com máquina, O.F. e previsto × real.</div></button>` : ''}
    <div class="sec">Carga por máquina · ${dSem(dia)}</div>
    ${cards.map(c => { const pct = Math.round(c.min / cap * 100), st = c.ops.find(o => avisosOp(o).some(t => t.startsWith('Prioridade'))); return `<button class="card" data-act="pmaq" data-ref="${esc(c.m)}"><div class="row"><span class="name">${esc(c.m)}</span><b class="num">${hMin(c.min)}</b></div><div class="barra" role="img" aria-label="${pct}% das horas do dia"><i class="${pct > 100 ? 'bad' : pct >= 80 ? 'warn' : ''}" style="width:${Math.min(pct, 100)}%"></i></div><div class="sub">${c.ops.length} ${c.ops.length === 1 ? 'operação' : 'operações'} · ${pct}% do turno${st ? ' · tem Stanley prioritária' : ''}</div></button>`; }).join('')}
@@ -984,7 +985,10 @@ async function importar(arq, remover) {
 async function entrar() {
   const { data, error } = await sb.rpc('meu_perfil');
   if (error || !data || !data.length) { S.tela = 'semacesso'; render(); return; }
-  S.eu = data[0].nome; S.papel = data[0].papel; S.tela = 'app'; S.carregado = false; if (S.papel === 'suporte') S.tab = 'entregas'; render();
+  S.eu = data[0].nome; S.papel = data[0].papel;
+  if (S.papel === 'fabrica') { location.replace('fabrica.html'); return; }
+  if (S.papel === 'tecnico') { location.replace('tecnico.html'); return; }
+  S.tela = 'app'; S.carregado = false; if (S.papel === 'suporte') S.tab = 'entregas'; render();
   try { await carregar(); } catch (e) { console.error(e); S.tela = 'app'; toast('Não foi possível carregar. Recarregue a página.'); }
   render();
 }
