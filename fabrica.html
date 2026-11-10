@@ -1,0 +1,307 @@
+<title>Fábrica Fermani</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0A3440">
+<link rel="manifest" href="manifest.json"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: uma coluna de celular, como o app CRM Fermani; a O.F. atual domina a tela e os botões ficam ao alcance do polegar */
+:root{
+  --bg:#F2F6F7;--card:#FFFFFF;--fg:#16282D;--muted:#56696E;--line:#D6E2E5;--chip:#E6F0F2;--chip-fg:#0E4C5C;
+  --head:#0A3440;--head-fg:#FFFFFF;--head-muted:#BFD3D8;--petrol:#0E4C5C;--gold:#C8963E;--gold-soft:#E8C27A;
+  --go:#1D7349;--go-fg:#FFFFFF;--ok-soft:#E3F2EA;--ok:#1D7349;--bad:#B3261E;--bad-soft:#FBE9E7;--warn:#7A5418;--warn-soft:#FBF1DF;--warn-line:#E8C27A;
+  --display:"Archivo","Helvetica Neue",Arial,sans-serif;--body:"Figtree","Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0B1A1E;--card:#122A30;--fg:#E4EEF0;--muted:#97AEB3;--line:#24434B;--chip:#1A3A42;--chip-fg:#BFE0E8;
+  --head:#071F26;--head-fg:#FFFFFF;--head-muted:#9DBAC1;--petrol:#2C8197;--gold:#D8A850;--gold-soft:#E8C27A;
+  --go:#1F8A57;--go-fg:#FFFFFF;--ok-soft:#173A2A;--ok:#7BD3A4;--bad:#FF8A80;--bad-soft:#3A1D1B;--warn:#F0C97F;--warn-soft:#33281A;--warn-line:#6E5527;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0B1A1E;--card:#122A30;--fg:#E4EEF0;--muted:#97AEB3;--line:#24434B;--chip:#1A3A42;--chip-fg:#BFE0E8;
+  --head:#071F26;--head-fg:#FFFFFF;--head-muted:#9DBAC1;--petrol:#2C8197;--gold:#D8A850;--gold-soft:#E8C27A;
+  --go:#1F8A57;--go-fg:#FFFFFF;--ok-soft:#173A2A;--ok:#7BD3A4;--bad:#FF8A80;--bad-soft:#3A1D1B;--warn:#F0C97F;--warn-soft:#33281A;--warn-line:#6E5527;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.4}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--head)}
+button,input,select{font:inherit;color:inherit}button{cursor:pointer}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.app{max-width:520px;margin:0 auto;min-height:100%;display:flex;flex-direction:column}
+.head{background:var(--head);color:var(--head-fg);padding-block:14px 16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:6px}
+.brand{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.brand b{font-family:var(--display);letter-spacing:.28em;font-size:13px;color:var(--gold-soft)}
+.pill{font-size:11px;font-weight:700;letter-spacing:.04em;color:#0A3440;background:var(--gold-soft);border-radius:6px;padding:3px 7px}
+h1{font-family:var(--display);font-size:24px;font-weight:700;margin:0;line-height:1.15;text-wrap:balance}
+.hi{font-size:13px;color:var(--head-muted)}
+.back{align-self:flex-start;background:none;border:0;color:var(--head-fg);min-height:40px;padding:0 8px 0 0;font-weight:600}
+.main{flex:1;display:flex;flex-direction:column;gap:10px;padding-block:14px 104px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+button.card{text-align:left;width:100%}
+.row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.row>*{min-width:0}
+.name{font-weight:700}.sub{font-size:13px;color:var(--muted)}.num{font-variant-numeric:tabular-nums}
+.sec{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--petrol);margin-top:6px}
+.tags{display:flex;flex-wrap:wrap;gap:4px}
+.tag{font-size:11px;font-weight:700;border-radius:6px;padding:2px 7px;background:var(--chip);color:var(--chip-fg)}
+.tag.bad{background:var(--bad-soft);color:var(--bad)}.tag.ok{background:var(--ok-soft);color:var(--ok)}.tag.warn{background:var(--warn-soft);color:var(--warn)}
+.now{border:2px solid var(--petrol);gap:10px}
+.now.running{border-color:var(--go)}.now.paused{border-color:var(--gold)}
+.of{font-family:var(--display);font-size:34px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.client{font-size:17px;font-weight:700}
+.kv{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.kv div{display:flex;flex-direction:column;gap:1px;min-width:0}.kv span{font-size:11px;color:var(--muted)}.kv b{font-size:14px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.tools{font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px}
+.clock{font-family:var(--display);font-size:44px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums;line-height:1.05}
+.clock small{display:block;font-family:var(--body);font-size:13px;font-weight:500;color:var(--muted)}
+.btn{min-height:56px;border-radius:12px;border:1px solid transparent;font-weight:700;font-size:17px;padding:8px 14px;width:100%}
+.btn.go{background:var(--go);color:var(--go-fg)}.btn.stop{background:var(--gold);color:#16282D}.btn.end{background:var(--petrol);color:#FFFFFF}
+.btn.ghost{background:transparent;border-color:var(--line);color:var(--fg);font-size:14px;min-height:46px;font-weight:600}
+.btn.danger{background:transparent;border-color:var(--bad);color:var(--bad);font-size:14px;min-height:46px}
+.acts{display:grid;gap:8px}.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.alert{background:var(--warn-soft);border:1px solid var(--warn-line);color:var(--warn);border-radius:12px;padding:10px 12px;font-size:13px;font-weight:600}
+.alert.must{background:var(--bad-soft);border-color:var(--bad);color:var(--bad);font-weight:700}
+.alert.good{background:var(--ok-soft);border-color:transparent;color:var(--ok)}
+.sel,.txtin{height:52px;border-radius:12px;border:1px solid var(--line);background:var(--bg);padding:0 12px;font-size:16px;width:100%}
+.reasons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.field{display:flex;flex-direction:column;gap:4px}.field label{font-size:13px;font-weight:600}
+.field input{height:56px;border-radius:12px;border:1px solid var(--line);background:var(--bg);padding:0 14px;font-size:22px;font-weight:700;width:100%}
+.check{display:flex;gap:10px;align-items:center;min-height:44px;font-size:14px;font-weight:600}.check input{width:22px;height:22px;flex-shrink:0}
+.state{font-size:11px;font-weight:700;border-radius:6px;padding:2px 7px;white-space:nowrap}
+.state.run{background:var(--ok-soft);color:var(--ok)}.state.pause{background:var(--warn-soft);color:var(--warn)}.state.idle{background:var(--chip);color:var(--chip-fg)}
+.bar{height:6px;border-radius:3px;background:var(--chip);overflow:hidden}.bar i{display:block;height:100%;background:var(--petrol)}
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:5;display:flex;justify-content:center;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.nav div{width:100%;max-width:520px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));height:60px}
+.nav button{background:none;border:0;color:var(--muted);font-weight:600;font-size:14px}
+.nav button[aria-current="page"]{color:var(--petrol);font-weight:800;box-shadow:inset 0 3px 0 var(--petrol)}
+.table{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;font-size:13px;font-variant-numeric:tabular-nums}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}th{font-size:11px;color:var(--muted)}
+.dif{font-weight:700}.dif.mais{color:var(--bad)}.dif.menos{color:var(--ok)}
+textarea{width:100%;height:120px;font-size:12px;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:8px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:6;background:var(--head);color:var(--head-fg);padding:10px 14px;border-radius:10px;font-size:14px;font-weight:600;max-width:90%}
+.lnk{background:none;border:0;color:inherit;text-decoration:underline;font:inherit;padding:0 4px;cursor:pointer}
+.syncbar{position:fixed;left:12px;right:12px;bottom:76px;z-index:30;background:var(--warn-soft);color:var(--warn);border:1px solid var(--warn-line);border-radius:12px;padding:10px 12px;font-weight:600;font-size:14px}
+.syncbar.off{background:var(--bad-soft);color:var(--bad);border-color:var(--bad)}
+</style>
+<div class="app" id="app"></div>
+<nav class="nav" aria-label="Telas"><div id="nav"></div></nav>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0"></script>
+<script src="config.js"></script>
+<script>
+(function(){
+'use strict';
+const CFG=window.CRM_CONFIG||{};
+const $=id=>document.getElementById(id);
+const msg=(t,s,link)=>{$('app').innerHTML=`<div class="head"><div class="brand"><b>FERMANI</b></div><h1>${t}</h1></div><div class="main"><div class="card"><div class="sub">${s}</div>${link?`<a class="btn go" href="${link[0]}" style="text-align:center;text-decoration:none;display:block;margin-top:12px">${link[1]}</a>`:''}</div></div>`};
+const CKEY='fermani-fabrica-cache';
+const GEMEA={'RISCADOR 2200':'RISCADOR 1 2600','JATO 1200':'CV(JATO 1)2100'};
+const iso=t=>t?new Date(t).toISOString():null;
+const ms=t=>t?Date.parse(t):null;
+let sb=null;
+async function todos(t,f){let out=[],de=0;for(;;){let q=sb.from(t).select('*').range(de,de+999);if(f)q=f(q);const {data,error}=await q;if(error)throw error;out=out.concat(data);if(data.length<1000)return out;de+=1000}}
+function chaveDe(o){return o.maquina+'|'+o.ofn}
+function paraLinha(o,r){return {chave:chaveDe(o),ofn:o.ofn,ft:o.ft||null,maquina_prog:o.maquina,maquina:r.maq||o.maquina,cliente:o.cliente||null,referencia:o.referencia||null,previsto:o.minutos||null,ini:iso(r.ini||Date.now()),prod:iso(r.prod),fim:iso(r.fim),paradas:(r.paradas||[]).map(p=>({ini:p.ini,fim:p.fim||null,motivo:p.motivo})),qtd:r.qtd==null?null:r.qtd,perda_aj:r.perdaAj||0,perda_prod:r.perdaProd||0,ajuste:r.ajuste||null,mot_ordem:r.motOrdem||null,operador:r.operador||null,ajudante:r.ajudante||null,pessoas:r.pessoas||null,pcboot:!!r.pc,ja_feita:!!r.pre}}
+function deLinha(l){if(l.ja_feita)return {pre:true,paradas:[],pc:!!l.pcboot};return {ini:ms(l.ini),prod:ms(l.prod),fim:ms(l.fim),paradas:(l.paradas||[]).map(p=>({ini:+p.ini,fim:p.fim?+p.fim:null,motivo:p.motivo})),qtd:l.qtd,perdaAj:l.perda_aj||0,perdaProd:l.perda_prod||0,pc:!!l.pcboot,ajuste:l.ajuste||'',motOrdem:l.mot_ordem||'',maq:l.maquina!==l.maquina_prog?l.maquina:undefined,operador:l.operador||'',ajudante:l.ajudante||'',pessoas:l.pessoas||''}}
+const S={last:{},pend:new Set(),busy:false,erro:false,ok:null,ops:null,R:null,versao:null};
+function lerCache(){try{return JSON.parse(localStorage.getItem(CKEY)||'null')||{rec:{},pend:[]}}catch(e){return {rec:{},pend:[]}}}
+function gravaCache(){try{const rec={};S.ops.forEach(o=>{if(S.R[o.id])rec[chaveDe(o)]=S.R[o.id]});localStorage.setItem(CKEY,JSON.stringify({rec,pend:[...S.pend].map(id=>chaveDe(S.ops[id]))}))}catch(e){}}
+function assinatura(o){const r=S.R[o.id];if(!r)return null;const l=paraLinha(o,r);if(l.ja_feita)l.ini=null;return JSON.stringify(l)}
+async function enviar(){if(S.busy)return;S.busy=true;try{for(const id of [...S.pend]){const o=S.ops[id],r=S.R[id],sig=assinatura(o);let er=null;
+  if(r){const l=paraLinha(o,r);l.atualizado=new Date().toISOString();({error:er}=await sb.from('apontamentos').upsert(l,{onConflict:'chave'}))}
+  else{({error:er}=await sb.from('apontamentos').delete().eq('chave',chaveDe(o)))}
+  if(er){S.erro=true;break}S.last[id]=sig;if(assinatura(o)===sig)S.pend.delete(id)}
+  if(!S.pend.size){S.erro=false;S.ok=Date.now()}}catch(e){S.erro=true}finally{S.busy=false;gravaCache();if(window.__render)window.__render()}
+  if(S.pend.size){clearTimeout(enviar.t);enviar.t=setTimeout(enviar,20000)}}
+window.__sync=function(){S.ops.forEach(o=>{if(assinatura(o)!==(S.last[o.id]??null))S.pend.add(o.id)});gravaCache();enviar()};
+window.__banner=function(){if(S.pend.size)return `<div class="syncbar ${S.erro?'off':''}">${S.erro?`Sem conexão: ${S.pend.size} registro(s) guardado(s) no celular. Envio automático quando a internet voltar.`:'Salvando…'}</div>`;return ''};
+window.__versao=()=>S.versao;
+window.__sair=async()=>{try{await sb.auth.signOut()}catch(e){}location.href='index.html'};
+addEventListener('online',()=>enviar());
+document.addEventListener('visibilitychange',async()=>{if(document.visibilityState!=='visible')return;enviar();try{const {data}=await sb.from('programacao').select('versao').order('versao',{ascending:false}).limit(1);if(data&&data[0]&&data[0].versao!==S.versao&&!S.pend.size)location.reload()}catch(e){}});
+(async()=>{
+  if(!window.supabase||!CFG.supabaseUrl)return msg('Não abriu','Falha ao carregar. Confira a internet e recarregue a página.');
+  sb=window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseKey);
+  const {data:ss}=await sb.auth.getSession();
+  if(!ss||!ss.session)return msg('Entre primeiro','Entre no CRM com o seu e-mail e senha. Depois você volta direto para esta tela.',['index.html','Entrar no CRM']);
+  const {data:p,error:pe}=await sb.rpc('meu_perfil');
+  if(pe||!p||!p.length||!['fabrica','gestor'].includes(p[0].papel))return msg('Sem acesso','Este login não tem acesso à tela da fábrica.',['index.html','Voltar ao CRM']);
+  window.__eu=p[0].nome;
+  let prog=[],ap=[];
+  try{const {data:v,error:ve}=await sb.from('programacao').select('versao').order('versao',{ascending:false}).limit(1);if(ve)throw ve;S.versao=v&&v[0]?v[0].versao:null;
+    if(S.versao)prog=await todos('programacao',q=>q.eq('versao',S.versao).order('maquina').order('ordem'));
+    ap=await todos('apontamentos')}catch(e){console.error(e);return msg('Não carregou','Não foi possível buscar a programação. Confira a internet e recarregue a página.')}
+  const ops=[],idx={};
+  prog.forEach(r=>{const o=Object.assign({},r);o.maquina=GEMEA[o.maquina]||o.maquina;o.ativa=true;const k=chaveDe(o);if(idx[k]!=null)return;idx[k]=ops.length;ops.push(o)});
+  ap.forEach(l=>{if(idx[l.chave]!=null)return;idx[l.chave]=ops.length;ops.push({maquina:l.maquina_prog,ordem:-1,data_ini:(l.ini||'').slice(0,10),ini:'',data_fim:'',fim:'',minutos:l.previsto||0,entrega:null,ofn:l.ofn,ft:l.ft,cliente:l.cliente||'',qtde:null,referencia:l.referencia||'',larg:0,comp:0,onda:'',q_chapas:0,faca:null,arranjo:'',cliche:null,cores:null,avisos:'–',ativa:false})});
+  ops.forEach((o,i)=>{o.id=i});
+  const R={};ap.forEach(l=>{const i=idx[l.chave];R[i]=deLinha(l)});
+  S.ops=ops;S.R=R;ops.forEach(o=>{S.last[o.id]=assinatura(o)});
+  // o que ficou só no celular (sem internet) volta a ser enviado
+  const c=lerCache();(c.pend||[]).forEach(k=>{const i=idx[k];if(i==null)return;if(c.rec[k])R[i]=c.rec[k];else delete R[i];S.pend.add(i)});
+  window.__OPS=ops;window.__R=R;if(typeof window.__main!=='function')await new Promise(r=>addEventListener('DOMContentLoaded',r));window.__main();if(S.pend.size)enviar();
+  setInterval(async()=>{if(document.visibilityState!=='visible')return;try{const {data}=await sb.from('programacao').select('versao').order('versao',{ascending:false}).limit(1);if(data&&data[0]&&data[0].versao!==S.versao&&!S.pend.size&&!document.querySelector('form.card'))location.reload()}catch(e){}},600000);
+})();
+})();
+</script>
+<script>
+window.__main=function(){
+'use strict';
+const OPS=window.__OPS;
+const ORDM=['RISCADOR 1 2600','IMPRESSORA 1','IMPRESSORA 2','IMPRESSORA 3','CORTE VINCO','CV(JATO 1)2100','SERRA TICO-TICO','COLADEIRA 03','COLADEIRA 1','COLAGEM','GRAMPEADEIRA','ACABAMENTO','MÃO DE OBRA','MONTAGEM','MONTAGEM DE'];
+const MAQS=[...new Set(OPS.map(o=>o.maquina))].sort((a,b)=>(ORDM.indexOf(a)+99)%99-(ORDM.indexOf(b)+99)%99);
+const MOTIVOS=['Troca de faca','Troca de clichê','Falta de material','Manutenção','Aguardando etapa anterior','Intervalo fora do almoço','Sem operador','Fim de expediente / final de semana','Outro motivo'];
+const AJUSTES=['Sem troca','Troca de cores','Troca de altura','Troca de faca'];
+const MOTIVOS_ORDEM=['Aproveitar o ajuste','Urgência de entrega','Falta de material','Etapa anterior atrasou','Outro motivo'];
+let R=window.__R;
+const salvar=()=>{window.__sync()};
+const V={tab:'maq',maq:null,escolhida:{},sheet:null,forca:null,toast:null,copiar:null,zerar:false};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SEM=['dom','seg','ter','qua','qui','sex','sáb'];
+const dm=s=>s?s.slice(8,10)+'/'+s.slice(5,7):'';
+const dia=s=>SEM[new Date(s+'T12:00').getDay()]+' '+dm(s);
+const fq=n=>Number(n||0).toLocaleString('pt-BR');
+const pad=n=>String(n).padStart(2,'0');
+const hora=t=>{const d=new Date(t);return pad(d.getHours())+':'+pad(d.getMinutes())};
+const dur=ms=>{const s=Math.max(0,Math.floor(ms/1000));return pad(Math.floor(s/3600))+':'+pad(Math.floor(s/60)%60)+':'+pad(s%60)};
+const est=o=>R[o.id]||null;
+const status=o=>{const r=est(o);if(!r)return'nova';if(r.pre)return'pre';if(r.fim)return'fim';return r.paradas.some(p=>!p.fim)?'parada':'rodando'};
+const feita=o=>['fim','pre'].includes(status(o));
+const avisos=o=>String(o.avisos||'').split(' · ').filter(a=>a&&a!=='–');
+const de3010=o=>false;
+const GEMEA={'RISCADOR 2200':'RISCADOR 1 2600','JATO 1200':'CV(JATO 1)2100'};
+const MESA=['ACABAMENTO','MÃO DE OBRA','COLAGEM','MONTAGEM','MONTAGEM DE'];
+const base=m=>GEMEA[m]||m;
+const maqReal=o=>{const r=R[o.id];return r&&r.maq||o.maquina};
+const opsDe=m=>OPS.filter(o=>o.maquina===base(m)&&(o.ativa||R[o.id])).sort((a,b)=>a.ordem-b.ordem);
+const comGemeas=l=>l.flatMap(m=>[m].concat(Object.keys(GEMEA).filter(g=>GEMEA[g]===m)));
+const NKEY='fermani-operador-nomes';let NOMES={};try{NOMES=JSON.parse(localStorage.getItem(NKEY)||'{}')||{}}catch(e){NOMES={}}
+const salvaNomes=()=>{try{localStorage.setItem(NKEY,JSON.stringify(NOMES))}catch(e){}};
+const todosNomes=()=>[...new Set(Object.values(R).flatMap(r=>[r.operador,r.ajudante].concat(String(r.pessoas||'').split(','))).map(x=>String(x||'').trim()).filter(Boolean))].sort();
+const nomesTxt=r=>r.pessoas?r.pessoas:[r.operador,r.ajudante].filter(Boolean).join(' e ');
+const aposDe=o=>{const a=avisos(o).find(t=>t.startsWith('Após '));return a?a.slice(5):null};
+function anteriorPendente(o){const m=aposDe(o);if(!m)return null;const a=OPS.find(x=>x.maquina===m&&x.ofn===o.ofn);if(!a)return null;return feita(a)?null:a}
+const emUso=m=>opsDe(m).find(o=>['rodando','parada'].includes(status(o))&&maqReal(o)===m);
+const ocupadaFora=(o,m)=>['rodando','parada'].includes(status(o))&&maqReal(o)!==m;
+function atual(m){const u=emUso(m);if(u)return u;const e=V.escolhida[m];if(e!=null&&!feita(OPS[e])&&!ocupadaFora(OPS[e],m))return OPS[e];return opsDe(m).find(o=>!feita(o)&&!ocupadaFora(o,m))||null}
+function almocos(a,b){const out=[];const d=new Date(a);d.setHours(0,0,0,0);while(d.getTime()<=b){const w=d.getDay();if(w>0&&w<6){const x=new Date(d);x.setHours(11,30,0,0);const y=new Date(d);y.setHours(12,30,0,0);out.push([x.getTime(),y.getTime()])}d.setDate(d.getDate()+1)}return out}
+function tempoReal(r,ag){if(r.realFix!=null&&r.fim)return r.realFix*6e4;const fim=r.fim||ag;const ex=r.paradas.map(p=>[p.ini,p.fim||ag]);if(!r.hist)almocos(r.ini,fim).forEach(x=>ex.push(x));ex.sort((a,b)=>a[0]-b[0]);let t=0,c=r.ini;ex.forEach(([a,b])=>{a=Math.max(a,r.ini);b=Math.min(b,fim);if(a>=b||b<=c)return;if(a>c)t+=a-c;c=b});if(fim>c)t+=fim-c;return t}
+const tempoParado=(r,ag)=>r.parFix!=null?r.parFix*6e4:r.paradas.reduce((s,p)=>s+((p.fim||ag)-p.ini),0);
+function tagsHtml(o){return avisos(o).map(t=>`<span class="tag${t==='Atrasada'?' bad':t.startsWith('Prioridade')?' ok':t==='Conferir MP'?' warn':''}">${esc(t)}</span>`).join('')}
+function ferramental(o){const d=['F.T. '+(o.ft||'–')];if(o.larg>1)d.push('Chapa '+o.larg+' x '+o.comp,fq(o.q_chapas)+' chapas');d.push('Onda '+o.onda);if(o.faca)d.push('Faca '+o.faca);d.push('Arranjo '+o.arranjo);if(o.cliche)d.push('Clichê '+o.cliche);if(o.cores)d.push(o.cores);return d.join(' · ')}
+function botErrada(o){return V.errada===o.id?`<div class="alert must">Apagar o registro da O.F. ${o.ofn}? Use só se iniciou a O.F. errada.</div><div class="acts two"><button class="btn stop" data-act="errada" data-v="${o.id}">Sim, apagar</button><button class="btn ghost" data-act="naoerrada" data-v="${o.id}">Não</button></div>`:`<div class="acts"><button class="btn ghost" data-act="errada" data-v="${o.id}">Iniciei a O.F. errada</button></div>`}
+function campoNomes(m,r){const ult=NOMES[m]||{},dl=`<datalist id="dlnomes">${todosNomes().map(n=>`<option value="${esc(n)}">`).join('')}</datalist>`;
+  if(MESA.includes(base(m)))return `<div class="field"><label for="np">Nome das pessoas neste trabalho</label><input id="np" class="txtin" list="dlnomes" required autocomplete="off" placeholder="Ex.: Ana, Paulo" value="${esc(r?r.pessoas||'':ult.pessoas||'')}"></div>${dl}`;
+  return `<div class="field"><label for="nop">Operador</label><input id="nop" class="txtin" list="dlnomes" required autocomplete="off" value="${esc(r?r.operador||'':ult.operador||'')}"></div><div class="field"><label for="naj">Ajudante (se tiver)</label><input id="naj" class="txtin" list="dlnomes" autocomplete="off" value="${esc(r?r.ajudante||'':ult.ajudante||'')}"></div>${dl}`}
+function lerNomes(m){const o={};if($('np'))o.pessoas=$('np').value.split(',').map(x=>x.trim()).filter(Boolean).join(', ');else{o.operador=$('nop').value.trim();o.ajudante=$('naj')?$('naj').value.trim():''}NOMES[m]=o;salvaNomes();return o}
+function barra(h){return `<div class="head">${h}</div>`}
+const topo=x=>`<div class="brand"><b>FERMANI</b><span class="pill">FÁBRICA</span></div>${x}`;
+
+function telaMaquinas(){
+  const lista=comGemeas(MAQS.filter(m=>opsDe(m).length)).map(m=>{const l=opsDe(m),ok=l.filter(feita).length,u=emUso(m),a=atual(m);const st=u?(status(u)==='parada'?'pause':'run'):'idle';
+    return `<button class="card" data-act="maq" data-v="${esc(m)}"><div class="row"><span class="name">${esc(m)}</span><span class="state ${st}">${u?(st==='run'?'Produzindo':'Parada'):(a?'Aguardando':'Concluída')}</span></div>
+    <div class="bar" role="img" aria-label="${ok} de ${l.length} operações feitas"><i style="width:${Math.round(ok/l.length*100)}%"></i></div>
+    <div class="sub num">${GEMEA[m]?'Mesma fila da '+esc(GEMEA[m])+' · ':''}${ok} de ${l.length} feitas${a?` · ${u?'em':'próxima'} O.F. ${a.ofn} · ${esc(a.cliente)}`:''}</div></button>`}).join('');
+  return barra(topo(`<div class="hi">Programação de ${dm(window.__versao()||'')} · ${esc(window.__eu||'')}</div><h1>Qual é a sua máquina?</h1>`))+
+  `<div class="main"><div class="alert">Teste: aponte todos os tempos também no PCBOOT. Os registros ficam só neste aparelho.</div>${lista}</div>`;
+}
+function cartaoAtual(o){
+  const s=status(o),r=est(o),pend=anteriorPendente(o),ag=Date.now();
+  let corpo='';
+  if(s==='nova'){
+    corpo=(pend&&V.forca!==o.id?`<div class="alert must">Aguarde: ${esc(pend.maquina)} ainda não terminou esta O.F.</div><div class="acts"><button class="btn ghost" data-act="forca" data-v="${o.id}">A etapa anterior já terminou</button></div>`:
+      `<div class="acts"><button class="btn go" data-act="iniciar" data-v="${o.id}">Iniciar ajuste</button></div>`)+
+      (de3010(o)?`<div class="alert">Estava programada para 30/10. Se já foi feita, confirme abaixo.</div><div class="acts"><button class="btn ghost" data-act="pre" data-v="${o.id}">Já estava feita</button></div>`:'');
+  }else if(s==='rodando'&&r.hist){
+    corpo=`<div class="alert must">Esta O.F. ficou aberta no teste de 03/11. Finalize e informe a hora em que terminou.</div><div class="acts"><button class="btn end" data-act="finalizar" data-v="${o.id}">Finalizar</button></div>`;
+  }else if(s==='rodando'){
+    corpo=`<div class="clock"><span id="relogio" data-id="${o.id}">${dur(tempoReal(r,ag))}</span><small>${r.prod?'em produção desde '+hora(r.prod)+' · ajuste '+Math.round((r.prod-r.ini)/6e4)+' min':'em ajuste desde '+hora(r.ini)} · previsto ${o.minutos} min no total</small><small id="almnota"></small></div>
+    ${r.prod?`<div class="acts two"><button class="btn stop" data-act="parar" data-v="${o.id}">Parar</button><button class="btn end" data-act="finalizar" data-v="${o.id}">Finalizar</button></div>`:`<div class="acts"><button class="btn go" data-act="producao" data-v="${o.id}">Iniciar produção</button><button class="btn ghost" data-act="parar" data-v="${o.id}">Parar</button></div>`}${botErrada(o)}`;
+  }else if(s==='parada'){
+    const p=r.paradas.find(x=>!x.fim);
+    corpo=`<div class="clock"><span id="relogio" data-id="${o.id}" data-parada="1">${dur(ag-p.ini)}</span><small>parada · ${esc(p.motivo)} · desde ${hora(p.ini)}</small></div>
+    <div class="acts"><button class="btn go" data-act="retomar" data-v="${o.id}">Retomar</button></div>${botErrada(o)}`;
+  }
+  return `<div class="card now ${s==='rodando'?'running':s==='parada'?'paused':''}">
+   <div class="row"><div class="of">${o.ofn}</div><div class="tags" style="justify-content:flex-end">${tagsHtml(o)}</div></div>
+   <div class="client">${esc(o.cliente)}</div><div>${esc(o.referencia)}</div>
+   <div class="kv"><div><span>Quantidade</span><b>${fq(o.qtde)}</b></div><div><span>Previsto</span><b>${dia(o.data_ini).slice(4)} ${o.ini}</b></div><div><span>Entrega</span><b>${o.entrega?dm(o.entrega):'Sem data'}</b></div></div>
+   <div class="tools">${esc(ferramental(o))}</div>${r&&nomesTxt(r)?`<div class="sub"><b>${MESA.includes(base(maqReal(o)))?'Pessoas':'Equipe'}:</b> ${esc(nomesTxt(r))}${s!=='nova'&&s!=='fim'?` <button class="lnk" data-act="nomes" data-v="${o.id}">trocar</button>`:''}</div>`:''}${corpo}</div>`;
+}
+function telaMaquina(m){
+  const a=atual(m),l=opsDe(m),u=emUso(m),depois=l.filter(o=>!feita(o)&&!ocupadaFora(o,m)&&(!a||o.id!==a.id)),naGemea=l.filter(o=>ocupadaFora(o,m)),prontas=l.filter(feita);
+  let sheet='';
+  if(V.sheet&&V.sheet.t==='ini'){const o=OPS[V.sheet.id],prox=l.find(x=>!feita(x)&&!ocupadaFora(x,m)),fora=prox&&prox.id!==o.id;sheet=`<form class="card" id="fini"><div class="name">Iniciar ajuste da O.F. ${o.ofn}</div><div class="field"><label for="tj">Tipo de ajuste</label><select id="tj" class="sel" required><option value="">Escolha</option>${AJUSTES.map(x=>`<option>${esc(x)}</option>`).join('')}</select></div>${fora?`<div class="field"><label for="mo">Por que esta O.F. agora?</label><select id="mo" class="sel" required><option value="">Escolha</option>${MOTIVOS_ORDEM.map(x=>`<option>${esc(x)}</option>`).join('')}</select></div>`:''}${campoNomes(V.maq,null)}<div class="acts two"><button class="btn ghost" type="button" data-act="fecha">Voltar</button><button class="btn go" type="submit">Iniciar ajuste</button></div></form>`}
+  if(V.sheet&&V.sheet.t==='nomes'){const r=R[V.sheet.id];sheet=`<form class="card" id="fnomes"><div class="name">Quem está nesta O.F.?</div>${campoNomes(maqReal(OPS[V.sheet.id]),r)}<div class="acts two"><button class="btn ghost" type="button" data-act="fecha">Voltar</button><button class="btn go" type="submit">Salvar</button></div></form>`}
+  if(V.sheet&&V.sheet.t==='outro')sheet=`<form class="card" id="foutro"><div class="field"><label for="dm">Qual foi o motivo da parada?</label><input id="dm" class="txtin" required autocomplete="off"></div><div class="acts two"><button class="btn ghost" type="button" data-act="fecha">Voltar</button><button class="btn stop" type="submit">Registrar parada</button></div></form>`;
+  if(V.sheet&&V.sheet.t==='parar')sheet=`<div class="card"><div class="name">Por que a máquina parou?</div><div class="reasons">${MOTIVOS.map(x=>`<button class="btn ghost" data-act="motivo" data-v="${esc(x)}">${esc(x)}</button>`).join('')}</div><button class="btn ghost" data-act="fecha">Voltar</button></div>`;
+  if(V.sheet&&V.sheet.t==='fim'){const o=OPS[V.sheet.id];sheet=`<form class="card" id="ffim"><div class="name">Finalizar O.F. ${o.ofn}</div>${R[o.id].hist?`<div class="field"><label for="hf">Hora em que terminou em 03/11</label><input id="hf" type="time" required></div>`:''}${V.sheet.aviso?`<div class="alert must">${esc(V.sheet.aviso)} Confira e toque em Confirmar de novo.</div>`:''}<div class="field"><label for="qt">Quantidade produzida</label><input id="qt" inputmode="numeric" value="${o.qtde}" required></div><div class="acts two" style="align-items:end"><div class="field"><label for="pa">Perda no ajuste</label><input id="pa" inputmode="numeric" value="0"></div><div class="field"><label for="pp">Perda na produção</label><input id="pp" inputmode="numeric" value="0"></div></div><div class="acts two"><button class="btn ghost" type="button" data-act="fecha">Voltar</button><button class="btn end" type="submit">Confirmar</button></div></form>`}
+  return barra(`<button class="back" data-act="volta">‹ Máquinas</button><div class="hi num">${prontas.length} de ${l.length} feitas</div><h1>${esc(m)}</h1>`)+
+  `<div class="main">${!sheet&&!u?`<form id="fof" class="card"><div class="field"><label for="cod">Ler código de barras ou digitar a O.F.</label><input id="cod" inputmode="numeric" autocomplete="off" placeholder="Ex.: 39649"></div>${V.msgCod?`<div class="alert ${V.msgCod.ok?'good':'must'}">${esc(V.msgCod.t)}</div>`:''}<button class="btn ghost" type="submit">Abrir O.F.</button></form>`:''}${sheet||(a?cartaoAtual(a):'<div class="alert good">Todas as operações desta máquina foram registradas.</div>')}
+   ${naGemea.map(o=>`<div class="alert">O.F. ${o.ofn} está ${status(o)==='parada'?'parada':'rodando'} na ${esc(maqReal(o))}.</div>`).join('')}
+   ${depois.length?`<div class="sec">Próximas · ${depois.length}</div>`:''}
+   ${depois.map(o=>u?`<div class="card"><div class="row"><span class="name num">O.F. ${o.ofn}</span><span class="sub num">${dm(o.data_ini)} ${o.ini}</span></div><div class="sub">${esc(o.cliente)} · ${esc(o.referencia)} · ${fq(o.qtde)}</div>${avisos(o).length?`<div class="tags">${tagsHtml(o)}</div>`:''}</div>`:`<button class="card" data-act="escolhe" data-v="${o.id}"><div class="row"><span class="name num">O.F. ${o.ofn}</span><span class="sub num">${dm(o.data_ini)} ${o.ini}</span></div><div class="sub">${esc(o.cliente)} · ${esc(o.referencia)} · ${fq(o.qtde)}</div>${avisos(o).length?`<div class="tags">${tagsHtml(o)}</div>`:''}</button>`).join('')}
+   ${prontas.length?`<div class="sec">Feitas · ${prontas.length}</div>`:''}
+   ${prontas.map(cartaoFeita).join('')}</div>`;
+}
+function cartaoFeita(o){const r=est(o);if(r.pre)return `<div class="card"><div class="row"><span class="name num">O.F. ${o.ofn}</span><span class="tag">Já estava feita</span></div><div class="sub">${esc(o.cliente)} · ${esc(o.referencia)}</div></div>`;
+  const real=Math.round(tempoReal(r,r.fim)/6e4),dif=real-o.minutos;
+  return `<div class="card"><div class="row"><span class="name num">O.F. ${o.ofn}</span><span class="dif num ${dif>0?'mais':'menos'}">${dif>0?'+':''}${dif} min</span></div><div class="sub num">${esc(o.cliente)} · ${fq(r.qtd)} un. · ${real} min de ${o.minutos} previstos${r.prod?` · ajuste ${Math.round((r.prod-r.ini)/6e4)} min`:''}${r.ajuste?` · ${esc(r.ajuste)}`:''}${r.motOrdem?` · ${esc(r.motOrdem)}`:''}${r.maq&&r.maq!==o.maquina?' · na '+esc(r.maq):''}${nomesTxt(r)?' · '+esc(nomesTxt(r)):''}${r.hist?' · teste anterior':''}${r.perdaAj||r.perdaProd?` · perda ${(r.perdaAj||0)+(r.perdaProd||0)}`:''}${r.paradas.length?` · ${r.paradas.length} parada(s)`:''}</div>
+  <label class="check"><input type="checkbox" data-pc="${o.id}"${r.pc?' checked':''}> Apontei no PCBOOT</label></div>`}
+function linhas(){return OPS.filter(o=>{const r=est(o);return r&&!r.pre}).map(o=>({o,r:est(o)})).sort((a,b)=>b.r.ini-a.r.ini)}
+function telaPainel(){
+  const ag=Date.now(),l=linhas(),fim=l.filter(x=>x.r.fim),semPc=fim.filter(x=>!x.r.pc).length,prev=fim.reduce((s,x)=>s+x.o.minutos,0),real=fim.reduce((s,x)=>s+Math.round(tempoReal(x.r,x.r.fim)/6e4),0),rod=comGemeas(MAQS).filter(m=>emUso(m));
+  const parado=Math.round(l.reduce((s,x)=>s+tempoParado(x.r,ag),0)/6e4);
+  return barra(topo('<div class="hi">Registros da fábrica, salvos no CRM</div><h1>Previsto × realizado</h1>'))+
+  `<div class="main"><div class="kv card"><div><span>Finalizadas</span><b>${fim.length}</b></div><div><span>Previsto × real</span><b>${prev} × ${real} min</b></div><div><span>Tempo parado</span><b>${parado} min</b></div></div>
+  ${semPc?`<div class="alert must">${semPc} ${semPc===1?'operação finalizada ainda não foi apontada':'operações finalizadas ainda não foram apontadas'} no PCBOOT.</div>`:''}
+  ${rod.length?`<div class="sec">Em andamento · ${rod.length}</div>${rod.map(m=>{const o=emUso(m),p=status(o)==='parada';return `<button class="card" data-act="maq" data-v="${esc(m)}"><div class="row"><span class="name">${esc(m)}</span><span class="state ${p?'pause':'run'}">${p?'Parada':'Produzindo'}</span></div><div class="sub num">O.F. ${o.ofn} · ${esc(o.cliente)} · início ${hora(est(o).ini)}</div></button>`}).join('')}`:''}
+  <div class="sec">Registros · ${l.length}</div>
+  ${l.length?`<div class="table"><table><thead><tr><th>O.F.</th><th>Máquina</th><th>Início</th><th>Fim</th><th>Previsto</th><th>Real</th><th>Parado</th><th>Qtde.</th></tr></thead><tbody>${l.map(({o,r})=>`<tr><td><b>${o.ofn}</b></td><td>${esc(maqReal(o))}</td><td>${hora(r.ini)}</td><td>${r.fim?hora(r.fim):'–'}</td><td>${o.minutos} min</td><td>${Math.round(tempoReal(r,ag)/6e4)} min</td><td>${Math.round(tempoParado(r,ag)/6e4)} min</td><td>${r.qtd!=null?fq(r.qtd):'–'}</td></tr>`).join('')}</tbody></table></div>
+  <button class="btn ghost" data-act="copia">Copiar registros (cópia de segurança)</button>${V.copiar?`<textarea id="txt" readonly aria-label="Registros para copiar">${esc(V.copiar)}</textarea>`:''}`:'<div class="card"><div class="name">Nenhum registro ainda</div><div class="sub">Escolha uma máquina em Máquinas e toque em Iniciar ajuste na O.F. da vez.</div></div>'}
+  <button class="btn ghost" data-act="sairfab">Sair</button></div>`;
+}
+function textoRegistros(){const q=['O.F.;F.T.;Máquina;Cliente;Início ajuste;Início produção;Fim;Previsto (min);Real (min);Parado (min);Qtde.;Perda ajuste;Perda produção;Motivos;PCBOOT;Tipo de ajuste;Motivo fora da ordem;Origem;Máquina programada;Operador;Ajudante;Pessoas'];linhas().forEach(({o,r})=>{const ag=Date.now();q.push([o.ofn,o.ft,maqReal(o),o.cliente,new Date(r.ini).toLocaleString('pt-BR'),r.prod?new Date(r.prod).toLocaleString('pt-BR'):'',r.fim?new Date(r.fim).toLocaleString('pt-BR'):'',o.minutos,Math.round(tempoReal(r,ag)/6e4),Math.round(tempoParado(r,ag)/6e4),r.qtd==null?'':r.qtd,r.perdaAj||0,r.perdaProd||0,r.paradas.map(p=>p.motivo).join(', '),r.pc?'sim':'não',r.ajuste||'',r.motOrdem||'','CRM',o.maquina,r.operador||'',r.ajudante||'',r.pessoas||''].join(';'))});return q.join('\n')}
+function render(){
+  const app=$('app');
+  app.innerHTML=(V.tab==='painel'?telaPainel():V.maq?telaMaquina(V.maq):telaMaquinas())+(V.toast?`<div class="toast" role="status">${esc(V.toast)}</div>`:'')+window.__banner();
+  $('nav').innerHTML=[['maq','Máquinas'],['painel','Painel']].map(([k,t])=>`<button data-act="tab" data-v="${k}"${V.tab===k?' aria-current="page"':''}>${t}</button>`).join('');
+}
+function aviso(t){V.toast=t;render();clearTimeout(aviso.t);aviso.t=setTimeout(()=>{V.toast=null;render()},3200)}
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act,v=b.dataset.v;
+  if(a==='tab'){V.tab=v;V.sheet=null;if(v==='maq')V.maq=null;scrollTo(0,0);render()}
+  else if(a==='maq'){V.tab='maq';V.maq=v;V.sheet=null;V.msgCod=null;scrollTo(0,0);render()}
+  else if(a==='volta'){V.maq=null;V.sheet=null;V.msgCod=null;scrollTo(0,0);render()}
+  else if(a==='escolhe'){V.escolhida[V.maq]=+v;V.forca=null;scrollTo(0,0);aviso('O.F. trocada. Depois informe o motivo ao iniciar.')}
+  else if(a==='forca'){V.forca=+v;render()}
+  else if(a==='errada'){if(V.errada===+v){delete R[+v];salvar();V.errada=null;V.escolhida={};aviso('Registro apagado. Escolha a O.F. certa.')}else{V.errada=+v;render()}}
+  else if(a==='naoerrada'){V.errada=null;render()}
+  else if(a==='nomes'){V.sheet={t:'nomes',id:+v};scrollTo(0,0);render()}
+  else if(a==='iniciar'){V.msgCod=null;if(!emUso(V.maq)){V.sheet={t:'ini',id:+v};scrollTo(0,0);render()}}
+  else if(a==='producao'){R[v].prod=Date.now();salvar();render()}
+  else if(a==='pre'){R[v]={pre:true,paradas:[]};salvar();render()}
+  else if(a==='parar'){V.sheet={t:'parar',id:+v};scrollTo(0,0);render()}
+  else if(a==='motivo'){if(v==='Outro motivo'){V.sheet={t:'outro',id:V.sheet.id};return render()}R[V.sheet.id].paradas.push({ini:Date.now(),fim:null,motivo:v});salvar();V.sheet=null;render()}
+  else if(a==='retomar'){const p=R[v].paradas.find(x=>!x.fim);if(p)p.fim=Date.now();salvar();render()}
+  else if(a==='finalizar'){V.sheet={t:'fim',id:+v};scrollTo(0,0);render()}
+  else if(a==='fecha'){V.sheet=null;render()}
+  else if(a==='copia'){V.copiar=textoRegistros();render();try{await navigator.clipboard.writeText(V.copiar);aviso('Registros copiados.')}catch(x){const t=$('txt');if(t){t.focus();t.select()}}}
+  else if(a==='sairfab'){window.__sair()}
+});
+const ETIQ={'14990':[39684,'RISCADOR 1 2600'],'14991':[39684,'CORTE-VINCO 1 (JATO)'],'14992':[39684,'AMARRADEIRA'],'14993':[39684,'STRECHADEIRA']};
+function lerCodigo(txt){const d=String(txt).replace(/\D/g,'');
+  if(ETIQ[d]){const [of,mq]=ETIQ[d];const o=OPS.find(x=>x.ofn===of&&x.maquina===mq);if(!o){V.msgCod={ok:false,t:'Etiqueta '+d+': O.F. '+of+', '+mq+'. Esta etapa não está na programação desta semana.'};return render()}if(o.maquina!==base(V.maq)){V.msgCod={ok:false,t:'Etiqueta '+d+' é da máquina '+o.maquina+', não desta.'};return render()}V.escolhida[V.maq]=o.id;V.forca=null;V.msgCod={ok:true,t:'Etiqueta '+d+': O.F. '+of+' aberta nesta máquina.'};return render()}const todas=[...new Set(OPS.map(o=>String(o.ofn)))];const ofn=todas.includes(d)?d:(todas.filter(x=>d.includes(x)).length===1?todas.find(x=>d.includes(x)):null);
+  if(!ofn){V.msgCod={ok:false,t:'Código '+(txt||'vazio')+' lido, mas ainda não sei a qual O.F. ele pertence. Anote este número para o teste.'};return render()}
+  const aq=opsDe(V.maq).find(o=>String(o.ofn)===ofn&&!ocupadaFora(o,V.maq));
+  if(!aq){const ms=[...new Set(OPS.filter(o=>String(o.ofn)===ofn).map(o=>o.maquina))].join(', ');V.msgCod={ok:false,t:'A O.F. '+ofn+' não é desta máquina. Ela passa por: '+ms+'.'};return render()}
+  if(feita(aq)){V.msgCod={ok:false,t:'A O.F. '+ofn+' já foi registrada nesta máquina.'};return render()}
+  const prox=opsDe(V.maq).find(o=>!feita(o));V.escolhida[V.maq]=aq.id;V.forca=null;V.msgCod={ok:true,t:prox&&prox.id===aq.id?'O.F. '+ofn+' aberta. É a próxima da sequência.':'O.F. '+ofn+' aberta. Está fora da sequência; o motivo será pedido ao iniciar.'};render()}
+document.addEventListener('submit',e=>{if(e.target.id==='fnomes'){e.preventDefault();Object.assign(R[V.sheet.id],lerNomes(maqReal(OPS[V.sheet.id])));salvar();V.sheet=null;render();return}
+ if(e.target.id==='fini'){e.preventDefault();const id=V.sheet.id;R[id]=Object.assign({ini:Date.now(),prod:null,fim:null,paradas:[],qtd:null,perdaAj:0,perdaProd:0,pc:false,ajuste:$('tj').value,motOrdem:$('mo')?$('mo').value:'',maq:V.maq},lerNomes(V.maq));salvar();V.sheet=null;scrollTo(0,0);render();return}
+ if(e.target.id==='foutro'){e.preventDefault();R[V.sheet.id].paradas.push({ini:Date.now(),fim:null,motivo:$('dm').value.trim()||'Outro motivo'});salvar();V.sheet=null;render();return}
+ if(e.target.id==='fof'){e.preventDefault();lerCodigo($('cod').value);return}if(e.target.id==='ffim'){e.preventDefault();const id=V.sheet.id,q=parseInt(String($('qt').value).replace(/\D/g,''),10);if(!(q>=0)){return}const ped=OPS[id].qtde;if(ped&&Math.abs(q-ped)/ped>0.1&&V.sheet.confQ!==q){V.sheet.confQ=q;V.sheet.aviso='A quantidade '+fq(q)+' está mais de 10% longe da pedida ('+fq(ped)+').';V.sheet.valQ=q;render();$('qt').value=q;return}const r=R[id];if(r.hist&&$('hf')&&$('hf').value){const [h,m]=$('hf').value.split(':').map(Number);const d=new Date(r.ini);d.setHours(h,m,0,0);r.fim=d.getTime()}else r.fim=Date.now();r.qtd=q;r.perdaAj=parseInt($('pa').value,10)||0;r.perdaProd=parseInt($('pp').value,10)||0;salvar();V.sheet=null;scrollTo(0,0);aviso('Finalizada. Agora aponte os tempos no PCBOOT.')}});
+document.addEventListener('change',e=>{const id=e.target.dataset&&e.target.dataset.pc;if(id!=null&&R[id]){R[id].pc=e.target.checked;salvar();if(V.tab==='painel')render()}});
+setInterval(()=>{const c=$('relogio');if(!c)return;const r=R[c.dataset.id];if(!r)return;const ag=Date.now();if(c.dataset.parada){const p=r.paradas.find(x=>!x.fim);if(p)c.textContent=dur(ag-p.ini)}else c.textContent=dur(tempoReal(r,ag));const n=$('almnota');if(n){const d=new Date(ag),w=d.getDay(),m=d.getHours()*60+d.getMinutes();n.textContent=w>0&&w<6&&m>=690&&m<750?'Almoço: o tempo volta a contar às 12:30':''}},1000);
+window.__render=render;
+render();
+};
+</script>
