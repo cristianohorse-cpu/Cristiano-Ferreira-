@@ -201,7 +201,7 @@ function telaMaquinas(){
     <div class="bar" role="img" aria-label="${ok} de ${l.length} operações feitas"><i style="width:${Math.round(ok/l.length*100)}%"></i></div>
     <div class="sub num">${GEMEA[m]?'Mesma fila da '+esc(GEMEA[m])+' · ':''}${ok} de ${l.length} feitas${a?` · ${u?'em':'próxima'} O.F. ${a.ofn} · ${esc(a.cliente)}`:''}</div></button>`}).join('');
   return barra(topo(`<div class="hi">Programação de ${dm(window.__versao()||'')} · ${esc(window.__eu||'')}</div><h1>Qual é a sua máquina?</h1>`))+
-  `<div class="main"><div class="alert">Teste: aponte todos os tempos também no PCBOOT. Os registros ficam só neste aparelho.</div>${lista}</div>`;
+  `<div class="main"><div class="alert">Aponte todos os tempos também no PCBOOT. Os registros vão direto para o CRM (sem internet, ficam guardados e são enviados depois).</div>${lista}</div>`;
 }
 function cartaoAtual(o){
   const s=status(o),r=est(o),pend=anteriorPendente(o),ag=Date.now();
