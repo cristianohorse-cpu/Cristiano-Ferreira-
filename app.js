@@ -565,7 +565,7 @@ function telaEntregas() {
     <div class="sub">Pedido ${x.it.pedido} · O.F. ${esc(x.it.of)} · ${esc(primeiro(x.p.vendedor))}${x.it.fracionado ? ' · fracionada' : ''}</div></div></div></button>`;
   const bloco = (t, a, cls) => a.length ? `<div class="sec ${cls || ''}">${t} · ${a.length}</div>` + a.map(linha).join('') : '';
   return head(topo(`<div class="hi">Itens com saldo a entregar</div><h1>Entregas</h1><div class="kpis"><div class="kpi${atr.length ? ' bad' : ''}"><strong>${atr.length}</strong><span>atrasadas</span></div><div class="kpi"><strong>${prox7.length}</strong><span>próximos 7 dias</span></div><div class="kpi gold"><strong>${baixa.length}</strong><span>confirmar baixa</span></div></div>`)) +
-  `<div class="main"><div class="field"><label for="fvend">Vendedor</label><select id="fvend"><option value="">Todos</option>${vends.map(v => `<option value="${esc(v)}"${v === fv ? ' selected' : ''}>${esc(titulo(v))}</option>`).join('')}</select></div>
+  `<div class="main"><a class="card" href="expedicao.html" style="display:block;text-decoration:none;color:inherit;border-left:4px solid var(--gold)"><div class="row"><span class="name">📦 Expedição · caixas prontas e sobras</span><b class="num">abrir</b></div><div class="sub">Entradas da expedição, saldo pronto × faturado e etiqueta A4 das sobras.</div></a><div class="field"><label for="fvend">Vendedor</label><select id="fvend"><option value="">Todos</option>${vends.map(v => `<option value="${esc(v)}"${v === fv ? ' selected' : ''}>${esc(titulo(v))}</option>`).join('')}</select></div>
    ${blocoAvisos()}
    ${bloco('Atrasadas', atr, 'bad')}${bloco('Confirmar baixa', baixa)}${bloco('Próximos 7 dias', prox7)}${bloco('Depois', depois)}
    ${!l.length ? '<div class="empty"><b>Nenhum item com saldo</b><span>Os itens entram com a importação do relatório de pedidos.</span></div>' : ''}
@@ -988,6 +988,7 @@ async function entrar() {
   S.eu = data[0].nome; S.papel = data[0].papel;
   if (S.papel === 'fabrica') { location.replace('fabrica.html'); return; }
   if (S.papel === 'tecnico') { location.replace('tecnico.html'); return; }
+  if (S.papel === 'expedicao') { location.replace('expedicao.html'); return; }
   S.tela = 'app'; S.carregado = false; if (S.papel === 'suporte') S.tab = 'entregas'; render();
   try { await carregar(); } catch (e) { console.error(e); S.tela = 'app'; toast('Não foi possível carregar. Recarregue a página.'); }
   render();

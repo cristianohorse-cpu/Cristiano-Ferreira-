@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Expedição Fermani</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0A3440">
+<link rel="manifest" href="manifest.json"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Expedição: entrada de caixas prontas por O.F., saldo (pronto x faturado) e etiqueta A4 da sobra */
+:root{--bg:#F2F6F7;--card:#FFFFFF;--fg:#16282D;--muted:#56696E;--line:#D6E2E5;--chip:#E6F0F2;--chip-fg:#0E4C5C;--head:#0A3440;--head-fg:#FFFFFF;--head-muted:#BFD3D8;--petrol:#0E4C5C;--gold:#C8963E;--gold-soft:#E8C27A;--go:#1D7349;--ok-soft:#E3F2EA;--ok:#1D7349;--bad:#B3261E;--bad-soft:#FBE9E7;--warn:#7A5418;--warn-soft:#FBF1DF;--warn-line:#E8C27A;--display:"Archivo","Helvetica Neue",Arial,sans-serif;--body:"Figtree","Segoe UI",system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0B1A1E;--card:#122A30;--fg:#E4EEF0;--muted:#97AEB3;--line:#24434B;--chip:#1A3A42;--chip-fg:#BFE0E8;--head:#071F26;--head-muted:#9DBAC1;--petrol:#2C8197;--gold:#D8A850;--ok-soft:#173A2A;--ok:#7BD3A4;--bad:#FF8A80;--bad-soft:#3A1D1B;--warn:#F0C97F;--warn-soft:#33281A;--warn-line:#6E5527;color-scheme:dark}}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.4}
+button,input,select{font:inherit;color:inherit}button{cursor:pointer}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.app{max-width:760px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+.head{background:var(--head);color:var(--head-fg);padding:14px 16px 16px;display:flex;flex-direction:column;gap:6px}
+.brand{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.brand b{font-family:var(--display);letter-spacing:.28em;font-size:13px;color:var(--gold-soft)}
+.pill{font-size:11px;font-weight:700;color:#0A3440;background:var(--gold-soft);border-radius:6px;padding:3px 7px}
+h1{font-family:var(--display);font-size:24px;font-weight:700;margin:0;line-height:1.15}
+.hi{font-size:13px;color:var(--head-muted)}
+.back{align-self:flex-start;background:none;border:0;color:var(--head-fg);min-height:40px;padding:0;font-weight:600}
+.main{flex:1;display:flex;flex-direction:column;gap:10px;padding:14px 16px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+button.card{text-align:left;width:100%}
+.row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.row>*{min-width:0}
+.name{font-weight:700;overflow-wrap:anywhere}.sub{font-size:13px;color:var(--muted)}.num{font-variant-numeric:tabular-nums}
+.sec{font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-top:8px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.kpi{background:rgba(255,255,255,.08);border-radius:12px;padding:10px;display:flex;flex-direction:column}
+.kpi strong{font-family:var(--display);font-size:22px}.kpi span{font-size:12px;color:var(--head-muted)}
+.search{display:flex;gap:8px}.search input{flex:1;min-width:0;height:52px;border-radius:12px;border:0;padding:0 14px;font-size:20px;background:#fff;color:#16282D}
+.btn{height:48px;border-radius:12px;border:0;background:var(--petrol);color:#fff;font-weight:700;padding:0 16px}
+.btn.gold{background:var(--gold);color:#16282D}.btn.ghost{background:transparent;border:1px solid var(--line);color:var(--fg)}.btn.sm{height:38px;font-size:14px}
+.field{display:flex;flex-direction:column;gap:4px}.field label{font-size:13px;font-weight:600;color:var(--muted)}
+.field input,.field select{height:48px;border-radius:10px;border:1px solid var(--line);background:var(--card);padding:0 12px;font-size:17px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kv{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.kv div{background:var(--chip);border-radius:10px;padding:8px;display:flex;flex-direction:column}
+.kv span{font-size:11px;color:var(--muted)}.kv b{font-family:var(--display);font-size:18px}
+.tag{font-size:11px;font-weight:700;border-radius:6px;padding:3px 7px;background:var(--chip);color:var(--chip-fg);white-space:nowrap}
+.tag.ok{background:var(--ok-soft);color:var(--ok)}.tag.bad{background:var(--bad-soft);color:var(--bad)}.tag.warn{background:var(--warn-soft);color:var(--warn)}
+.alert{border-radius:12px;padding:12px;background:var(--warn-soft);border:1px solid var(--warn-line);color:var(--warn)}
+.empty{text-align:center;color:var(--muted);padding:24px 8px;display:flex;flex-direction:column;gap:4px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#16282D;color:#fff;padding:10px 16px;border-radius:10px;z-index:20}
+.etq{display:none}
+@media (max-width:520px){.kv{grid-template-columns:repeat(2,1fr)}}
+@media print{
+  @page{size:A4 landscape;margin:8mm}
+  body{background:#fff;color:#000}.app{display:none}.toast{display:none}
+  .etq{display:flex;flex-direction:column;width:281mm;height:192mm;border:3mm solid #000;padding:7mm 9mm;gap:3mm;font-family:Arial,Helvetica,sans-serif;color:#000;page-break-after:always}
+  .etq .top{display:flex;justify-content:space-between;align-items:center;font-size:20pt;font-weight:700;letter-spacing:.2em;border-bottom:1.5mm solid #000;padding-bottom:2mm}
+  .etq .tipo{font-size:20pt;letter-spacing:0;border:1.2mm solid #000;padding:1mm 4mm}
+  .etq .cli{font-size:54pt;font-weight:800;line-height:1.02;overflow:hidden;max-height:58mm}
+  .etq .prod{font-size:44pt;font-weight:700;line-height:1.05;overflow:hidden;max-height:40mm}
+  .etq .linha{display:flex;gap:6mm;align-items:flex-end;margin-top:auto}
+  .etq .linha div{display:flex;flex-direction:column}.etq .linha span{font-size:14pt}.etq .linha b{font-size:40pt;line-height:1}
+  .etq .qtd b{font-size:72pt}
+  .etq .rod{display:flex;justify-content:space-between;font-size:16pt;border-top:1mm solid #000;padding-top:2mm}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app"><div class="head"><div class="brand"><b>FERMANI</b></div><h1>Expedição</h1><div class="hi">Carregando…</div></div></div>
+<div id="etq"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.97.0"></script>
+<script src="config.js"></script>
+<script>
+(function(){'use strict';
+const CFG=window.CRM_CONFIG||{};const sb=window.supabase.createClient(CFG.supabaseUrl,CFG.supabaseKey);
+const $app=document.getElementById('app'),$etq=document.getElementById('etq');
+const S={eu:null,papel:null,ped:{},its:{},fat:{},nfs:{},ap:{},mov:[],view:null,q:'',toast:'',lista:'sobra'};
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fq=n=>Math.round(Number(n)||0).toLocaleString('pt-BR');
+const dm=s=>s?String(s).slice(8,10)+'/'+String(s).slice(5,7):'';const dmy=s=>s?dm(s)+'/'+String(s).slice(0,4):'';
+const hoje=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const dias=s=>s?Math.max(0,Math.round((Date.now()-new Date(String(s).slice(0,10)+'T12:00'))/864e5)):0;
+const titulo=s=>String(s||'').toLowerCase().replace(/(^|\s)\S/g,m=>m.toUpperCase());
+async function todos(t,sel){let o=[],de=0;for(;;){const {data,error}=await sb.from(t).select(sel||'*').range(de,de+999);if(error)throw error;o=o.concat(data);if(data.length<1000)return o;de+=1000}}
+function toast(t){S.toast=t;render();setTimeout(()=>{S.toast='';render()},2600)}
+async function carregar(){
+  const [pe,it,ni,nf,mv]=await Promise.all([todos('pedidos','numero,cliente,vendedor,data'),todos('pedido_itens','of,pedido,produto,entrega,qtd,kg,baixado'),todos('nf_itens','chave,of,qtd'),todos('nfs','chave,numero,data'),todos('exp_mov')]);
+  S.ped={};pe.forEach(p=>S.ped[p.numero]=p);S.its={};it.forEach(i=>S.its[String(i.of)]=i);
+  S.nfs={};nf.forEach(n=>S.nfs[n.chave]=n);S.fat={};ni.forEach(x=>{if(!x.of)return;(S.fat[x.of]=S.fat[x.of]||[]).push(x)});
+  S.mov=mv.sort((a,b)=>a.em<b.em?1:-1);
+  S.ap={};try{const ap=await todos('apontamentos','ofn,qtd,fim,maquina');ap.forEach(a=>{if(a.fim&&a.qtd!=null){const k=String(a.ofn);if(!S.ap[k]||a.fim>S.ap[k].fim)S.ap[k]=a}})}catch(e){}
+}
+function sit(of){
+  const it=S.its[of]||null,p=it?S.ped[it.pedido]:null;
+  const mv=S.mov.filter(m=>String(m.of)===of);
+  const ent=mv.filter(m=>m.tipo==='entrada').reduce((s,m)=>s+Number(m.qtd),0);
+  const sai=mv.filter(m=>m.tipo!=='entrada').reduce((s,m)=>s+(m.tipo==='saida'?-Math.abs(Number(m.qtd)):Number(m.qtd)),0);
+  const fl=S.fat[of]||[],fat=fl.reduce((s,x)=>s+Number(x.qtd||0),0);
+  const ped=it?Number(it.qtd):0,atendido=!!(it&&(it.baixado||fat>=ped*0.9));
+  const est=ent+sai-fat;const prim=mv.filter(m=>m.tipo==='entrada').map(m=>m.em).sort()[0];
+  const local=(mv.find(m=>m.local)||{}).local||'';
+  return {of,it,p,mv,ent,sai,fat,ped,atendido,est,prim,local,ap:S.ap[of]||null,nfs:[...new Set(fl.map(x=>(S.nfs[x.chave]||{}).numero).filter(Boolean))]};
+}
+function todasComEstoque(){return [...new Set(S.mov.map(m=>String(m.of)))].map(sit).filter(x=>x.est>0)}
+const tagSit=x=>x.est<=0?'<span class="tag ok">Sem estoque</span>':x.atendido?'<span class="tag warn">SOBRA</span>':'<span class="tag">Aguardando faturar</span>';
+const head=(inner)=>`<div class="head"><div class="brand"><b>FERMANI</b><span class="pill">EXPEDIÇÃO</span></div>${inner}</div>`;
+function telaInicio(){
+  const l=todasComEstoque(),sob=l.filter(x=>x.atendido),agu=l.filter(x=>!x.atendido),velhas=sob.filter(x=>dias(x.prim)>30);
+  const lista=S.lista==='sobra'?sob.sort((a,b)=>(a.prim||'')<(b.prim||'')?-1:1):agu.sort((a,b)=>(a.it&&b.it&&a.it.entrega<b.it.entrega)?-1:1);
+  const card=x=>`<button class="card" data-act="of" data-v="${esc(x.of)}"><div class="row"><span class="name">${esc(x.p?x.p.cliente:'O.F. sem pedido no CRM')}</span>${tagSit(x)}</div>
+   <div class="sub">${esc(x.it?x.it.produto:'')} · O.F. ${esc(x.of)}${x.it?' · pedido '+x.it.pedido:''}</div>
+   <div class="row sub"><span><b class="num" style="color:var(--fg);font-size:16px">${fq(x.est)}</b> no estoque${x.local?' · '+esc(x.local):''}</span><span>${x.prim?'desde '+dm(x.prim)+' ('+dias(x.prim)+' dias)':''}</span></div></button>`;
+  return head(`<div class="hi">Olá, ${esc(titulo(String(S.eu||'').split(' ')[0]))}</div><h1>Caixas prontas no estoque</h1>
+   <div class="kpis"><div class="kpi"><strong>${agu.length}</strong><span>O.F.s aguardando faturar</span></div><div class="kpi"><strong>${sob.length}</strong><span>O.F.s com sobra</span></div><div class="kpi"><strong style="color:${velhas.length?'#FF8A80':'inherit'}">${velhas.length}</strong><span>sobras há +30 dias</span></div></div>
+   <form class="search" id="fbusca"><input id="qof" inputmode="numeric" placeholder="Nº da O.F." value="${esc(S.q)}" aria-label="Número da O.F."><button class="btn gold" type="submit">Abrir</button></form>`)+
+  `<div class="main"><div class="row" style="gap:8px"><button class="btn ${S.lista==='sobra'?'':'ghost'} sm" data-act="lista" data-v="sobra" style="flex:1">Sobras (${sob.length})</button><button class="btn ${S.lista==='agu'?'':'ghost'} sm" data-act="lista" data-v="agu" style="flex:1">Aguardando faturar (${agu.length})</button></div>
+   ${lista.map(card).join('')||`<div class="empty"><b>${S.lista==='sobra'?'Nenhuma sobra registrada':'Nada aguardando faturamento'}</b><span>Digite o nº da O.F. acima para lançar a entrada das caixas prontas.</span></div>`}
+   <p class="sub">Sobra = caixas que entraram na expedição e não foram faturadas, com a O.F. já atendida. As quantidades faturadas vêm das notas fiscais (Fernandinho).</p>
+   <div class="row"><a class="sub" href="index.html">← Voltar ao CRM</a><button class="btn ghost sm" data-act="sair">Sair</button></div></div>`;
+}
+function telaOF(of){
+  const x=sit(of);if(!x.it&&!x.mv.length)return head(`<button class="back" data-act="voltar">← Voltar</button><h1>O.F. ${esc(of)}</h1>`)+`<div class="main"><div class="alert">Não achei a O.F. ${esc(of)} nos pedidos do CRM. Confira o número. Se o pedido for novo, ele entra quando o relatório de pedidos for lido.</div></div>`;
+  const sug=Math.max(0,(x.ap&&x.ap.qtd)||x.ped-x.ent);
+  return head(`<button class="back" data-act="voltar">← Voltar</button><div class="hi">O.F. ${esc(of)}${x.it?' · pedido '+x.it.pedido+' · entrega '+dmy(x.it.entrega):''}</div><h1>${esc(x.p?x.p.cliente:'')}</h1><div class="hi">${esc(x.it?x.it.produto:'')}${x.p?' · '+esc(titulo(x.p.vendedor)):''}</div>`)+
+  `<div class="main"><div class="card"><div class="row"><span class="name">Situação</span>${tagSit(x)}</div>
+   <div class="kv"><div><span>Pedida</span><b class="num">${fq(x.ped)}</b></div><div><span>Entrou na expedição</span><b class="num">${fq(x.ent)}</b></div><div><span>Faturada</span><b class="num">${fq(x.fat)}</b></div><div><span>No estoque agora</span><b class="num" style="color:${x.est>0?'var(--warn)':'inherit'}">${fq(x.est)}</b></div></div>
+   ${x.ap?`<div class="sub">Fábrica apontou ${fq(x.ap.qtd)} pronta(s) na ${esc(x.ap.maquina||'')} em ${dmy(String(x.ap.fim).slice(0,10))}.</div>`:''}
+   ${x.nfs.length?`<div class="sub">Notas: ${x.nfs.map(esc).join(', ')}</div>`:''}
+   ${x.est>0?`<button class="btn gold" data-act="etq" data-v="${esc(of)}">🖨️ Imprimir etiqueta A4</button>`:''}</div>
+   <form class="card" id="fent"><div class="name">Lançar entrada (caixas prontas que chegaram)</div><div class="grid2"><div class="field"><label for="eq">Quantidade contada</label><input id="eq" inputmode="numeric" value="${sug||''}" required></div><div class="field"><label for="el">Local no estoque</label><input id="el" placeholder="Ex.: Rua 3 · alto" value="${esc(x.local)}"></div></div><button class="btn" type="submit">Lançar entrada</button></form>
+   <form class="card" id="fsai"><div class="name">Saída ou ajuste do estoque</div><div class="grid2"><div class="field"><label for="sq">Quantidade</label><input id="sq" inputmode="numeric" required></div><div class="field"><label for="sm">Motivo</label><select id="sm"><option value="saida|Usada em outro pedido">Usada em outro pedido</option><option value="saida|Entregue sem nota (amostra/reposição)">Entregue sem nota</option><option value="saida|Descarte">Descarte</option><option value="ajuste|Inventário: contagem menor">Inventário: contei menos</option><option value="ajuste+|Inventário: contagem maior">Inventário: contei mais</option></select></div></div><button class="btn ghost" type="submit">Lançar</button></form>
+   <div class="sec">Movimentos</div>${x.mv.map(m=>`<div class="card"><div class="row"><span class="name">${m.tipo==='entrada'?'Entrada':m.tipo==='saida'?'Saída':'Ajuste'} · <span class="num">${fq(Math.abs(m.qtd))}</span></span><span class="sub">${dmy(String(m.em).slice(0,10))}</span></div><div class="sub">${esc([m.local,m.obs,m.por&&titulo(m.por)].filter(Boolean).join(' · '))}</div></div>`).join('')||'<div class="sub">Nenhum movimento ainda.</div>'}</div>`;
+}
+function etiqueta(of){const x=sit(of);return `<div class="etq"><div class="top"><span>FERMANI EMBALAGENS</span><span class="tipo">${x.atendido?'SOBRA EM ESTOQUE':'AGUARDANDO FATURAMENTO'}</span></div>
+ <div class="cli">${esc(x.p?x.p.cliente:'')}</div><div class="prod">${esc(x.it?x.it.produto:'')}</div>
+ <div class="linha"><div class="qtd"><span>QUANTIDADE</span><b>${fq(x.est)}</b></div><div><span>O.F.</span><b>${esc(of)}</b></div><div><span>PEDIDO</span><b>${x.it?x.it.pedido:''}</b></div></div>
+ <div class="rod"><span>Entrada: ${dmy(String(x.prim||'').slice(0,10))}</span><span>Local: ${esc(x.local||'—')}</span><span>Vendedor: ${esc(titulo(x.p?x.p.vendedor:''))}</span><span>Impresso: ${dmy(hoje())}</span></div></div>`}
+function render(){
+  if(S.tela==='erro'){$app.innerHTML=head('<h1>Expedição</h1>')+`<div class="main"><div class="alert">${esc(S.msg)}</div><a class="btn ghost" href="index.html" style="display:flex;align-items:center;justify-content:center;text-decoration:none">Ir para o CRM</a></div>`;return}
+  $app.innerHTML=(S.view?telaOF(S.view):telaInicio())+(S.toast?`<div class="toast" role="status">${esc(S.toast)}</div>`:'');
+}
+async function lancar(reg){const {error}=await sb.from('exp_mov').insert(reg);if(error){toast('Não foi possível salvar. Tente de novo.');return false}await carregar();return true}
+document.addEventListener('click',async e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act,v=b.dataset.v;
+  if(a==='of'){S.view=v;scrollTo(0,0);render()}else if(a==='voltar'){S.view=null;render()}else if(a==='lista'){S.lista=v;render()}
+  else if(a==='etq'){$etq.innerHTML=etiqueta(v);setTimeout(()=>window.print(),50)}
+  else if(a==='sair'){try{await sb.auth.signOut()}catch(_){}location.href='index.html'}});
+document.addEventListener('submit',async e=>{e.preventDefault();const id=e.target.id,val=k=>document.getElementById(k).value.trim();
+  if(id==='fbusca'){const q=val('qof').replace(/\D/g,'');if(!q)return;S.q='';S.view=q;render();return}
+  const of=S.view,x=sit(of),n=parseInt(String(id==='fent'?val('eq'):val('sq')).replace(/\D/g,''),10);if(!(n>0)){toast('Digite a quantidade.');return}
+  if(id==='fent'){if(await lancar({of,pedido:x.it?x.it.pedido:null,tipo:'entrada',qtd:n,local:val('el')||null}))toast('Entrada de '+fq(n)+' lançada.')}
+  if(id==='fsai'){const [t,mot]=val('sm').split('|');const tipo=t.replace('+','');const q=t==='ajuste+'?n:-n;if(tipo==='saida'&&n>x.est&&!confirm){}
+    if(await lancar({of,pedido:x.it?x.it.pedido:null,tipo,qtd:q,obs:mot,local:x.local||null}))toast('Lançado: '+mot+'.')}
+  render()});
+(async()=>{const {data:ss}=await sb.auth.getSession();if(!ss||!ss.session){location.replace('index.html');return}
+  const {data:p}=await sb.rpc('meu_perfil');if(!p||!p.length){S.tela='erro';S.msg='Seu e-mail ainda não tem acesso. Fale com o Cristiano.';render();return}
+  S.eu=p[0].nome;S.papel=p[0].papel;if(!['expedicao','gestor','suporte'].includes(S.papel)){S.tela='erro';S.msg='Esta tela é da expedição. Peça acesso ao Cristiano.';render();return}
+  try{await carregar()}catch(e){S.tela='erro';S.msg='Não foi possível carregar os dados ('+(e.message||e)+').';}render()})();
+})();
+</script>
+</body>
+</html>
