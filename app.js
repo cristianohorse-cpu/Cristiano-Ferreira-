@@ -999,6 +999,7 @@ async function entrar() {
     return;
   }
   sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseKey);
+  window.__crmSb = sb; // cliente único: o Fernandinho e o Vigia usam este mesmo login (evita derrubar a sessão)
   const { data } = await sb.auth.getSession();
   if (data && data.session) await entrar(); else { S.tela = 'login'; render(); }
   document.addEventListener('visibilitychange', async () => { if (document.visibilityState === 'visible' && S.tela === 'app' && S.carregado && !S.view) { try { await carregar(); S._keep = true; render(); } catch (e) {} } });
