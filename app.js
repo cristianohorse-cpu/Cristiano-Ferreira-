@@ -70,7 +70,8 @@ async function carregar() {
   if (S.papel === 'gestor' || S.papel === 'suporte') S.vendedores = await todos('vendedores');
   if (S.papel === 'gestor' || S.papel === 'suporte') { try { S.prog = await todos('programacao'); } catch (e) { S.prog = []; } }
   if (S.papel === 'gestor') { try { S.real = await todos('programacao_real'); } catch (e) { S.real = []; } }
-  S.carregado = true;
+  if (S.papel === 'gestor' || S.papel === 'suporte') { try { S.apont = await todos('apontamentos'); S.apontEm = new Date(); } catch (e) { S.apont = []; } }
+  FX = null; S.carregado = true;
 }
 const gestor = () => S.papel === 'gestor';
 const meus = l => l.filter(x => (x.resp || x.vendedor) === S.eu);
@@ -529,6 +530,7 @@ function cardItem(it, podeEditar) {
   }
   return `<div class="card${s.atrasado ? ' over' : ''}"><div class="row"><span class="name">${esc(it.produto || 'Item')}</span>${chipSit(s)}</div>
     <div class="sub">O.F. ${esc(it.of)} · entrega ${it.entrega ? dmy(it.entrega) : '–'}${it.kg ? ' · ' + fmtQ(it.kg) + ' kg' : ''}${it.pm ? ' · R$ ' + fmtQ(it.pm) + '/kg' : ''}</div>
+    ${veTudo() && s.aberto && (S.prog || []).length ? linhaFx(fxDe(it.of)) : ''}
     ${barra(Math.min(s.fat, s.qtd), s.qtd)}
     <div class="stats"><div class="stat"><span>Pedido</span><b>${fmtQ(s.qtd)}</b></div><div class="stat"><span>Faturado</span><b>${fmtQ(s.fat)}</b></div><div class="stat"><span>Saldo</span><b${s.saldo > 0 && s.aberto ? '' : ' style="color:var(--muted)"'}>${fmtQ(Math.max(s.saldo, 0))}</b></div></div>
     ${it.baixado ? `<div class="sub">Baixado por ${esc(primeiro(it.baixa_por))}${it.baixa_em ? ' em ' + dm(it.baixa_em.slice(0, 10)) : ''}${it.baixa_motivo ? ': ' + esc(it.baixa_motivo) : ''}${veTudo() ? ` · <button class="link" data-act="desfazbaixa" data-ref="${esc(it.of)}">Desfazer</button>` : ''}</div>` : ''}
@@ -565,7 +567,7 @@ function telaEntregas() {
     <div class="sub">Pedido ${x.it.pedido} · O.F. ${esc(x.it.of)} · ${esc(primeiro(x.p.vendedor))}${x.it.fracionado ? ' · fracionada' : ''}</div></div></div></button>`;
   const bloco = (t, a, cls) => a.length ? `<div class="sec ${cls || ''}">${t} · ${a.length}</div>` + a.map(linha).join('') : '';
   return head(topo(`<div class="hi">Itens com saldo a entregar</div><h1>Entregas</h1><div class="kpis"><div class="kpi${atr.length ? ' bad' : ''}"><strong>${atr.length}</strong><span>atrasadas</span></div><div class="kpi"><strong>${prox7.length}</strong><span>próximos 7 dias</span></div><div class="kpi gold"><strong>${baixa.length}</strong><span>confirmar baixa</span></div></div>`)) +
-  `<div class="main"><a class="card" href="expedicao.html" style="display:block;text-decoration:none;color:inherit;border-left:4px solid var(--gold)"><div class="row"><span class="name">📦 Expedição · caixas prontas e sobras</span><b class="num">abrir</b></div><div class="sub">Entradas da expedição, saldo pronto × faturado e etiqueta A4 das sobras.</div></a><div class="field"><label for="fvend">Vendedor</label><select id="fvend"><option value="">Todos</option>${vends.map(v => `<option value="${esc(v)}"${v === fv ? ' selected' : ''}>${esc(titulo(v))}</option>`).join('')}</select></div>
+  `<div class="main">${(() => { const pr = prontasExpedir().length, pc = pedidosFluxo().filter(x => x.completo).length; return pr ? `<button class="alert ok" data-act="fluxo" style="text-align:left;font:inherit;color:inherit"><span class="lbl">✅ ${pr} ${pr === 1 ? 'O.F. PRONTA' : 'O.F.s PRONTAS'} PARA EXPEDIR${pc ? ' · ' + pc + (pc === 1 ? ' PEDIDO COMPLETO' : ' PEDIDOS COMPLETOS') : ''}</span><span class="txt">A fábrica fechou a última máquina. Toque para ver e dar baixa.</span></button>` : ''; })()}<button class="card" data-act="fluxo" style="border-left:4px solid var(--petrol)"><div class="row"><span class="name">🏭 Fluxo das O.F.s na fábrica</span><b class="num">abrir</b></div><div class="sub">Cada O.F. máquina por máquina, pedidos completos e o que está rodando agora.</div></button><a class="card" href="expedicao.html" style="display:block;text-decoration:none;color:inherit;border-left:4px solid var(--gold)"><div class="row"><span class="name">📦 Expedição · caixas prontas e sobras</span><b class="num">abrir</b></div><div class="sub">Entradas da expedição, saldo pronto × faturado e etiqueta A4 das sobras.</div></a><div class="field"><label for="fvend">Vendedor</label><select id="fvend"><option value="">Todos</option>${vends.map(v => `<option value="${esc(v)}"${v === fv ? ' selected' : ''}>${esc(titulo(v))}</option>`).join('')}</select></div>
    ${blocoAvisos()}
    ${bloco('Atrasadas', atr, 'bad')}${bloco('Confirmar baixa', baixa)}${bloco('Próximos 7 dias', prox7)}${bloco('Depois', depois)}
    ${!l.length ? '<div class="empty"><b>Nenhum item com saldo</b><span>Os itens entram com a importação do relatório de pedidos.</span></div>' : ''}
@@ -615,6 +617,7 @@ function telaProg() {
   return head(topoH) + `<div class="main"><div class="chips">${dias.map(d => `<button class="chip" data-act="pdia" data-v="${d}" aria-pressed="${d === dia}">${dSem(d)}</button>`).join('')}</div>
    ${dia < hoje() ? '<div class="alert"><span class="lbl">DIA QUE JÁ PASSOU</span><span class="txt">Estas linhas ficam só para conferir se foram produzidas.</span></div>' : ''}
    ${Object.values(heMaq).some(j => j.dia === dia) ? `<div class="alert"><span class="lbl">HORA EXTRA · ${dSem(dia)}</span>${Object.entries(heMaq).filter(([, j]) => j.dia === dia).map(([m, j]) => `<span class="txt">${esc(m)}: 16:40 às ${pad(Math.floor(j.fim / 60))}:${pad(j.fim % 60)} (${hMin(j.fim - 1000)})</span>`).join('')}</div>` : ''}
+   <button class="card" data-act="fluxo"><div class="row"><span class="name">🏭 Fluxo real das O.F.s</span><b class="num">abrir</b></div><div class="sub">Máquina por máquina, prontas para expedir e pedidos completos.</div></button>
    ${S.papel === 'gestor' ? `<a class="card" href="tecnico.html" style="display:block;text-decoration:none;color:inherit"><div class="row"><span class="name">Fábrica agora e consulta técnica</span><b class="num">abrir</b></div><div class="sub">Apontamentos do app da fábrica em tempo real, busca por O.F., F.T. e máquina.</div></a>` : ''}
    ${(S.real || []).length ? `<button class="card" data-act="preal"><div class="row"><span class="name">Realizado no teste</span><b class="num">${(S.real || []).length} registros</b></div><div class="sub">Tempos do celular do Rogério, com máquina, O.F. e previsto × real.</div></button>` : ''}
    <div class="sec">Carga por máquina · ${dSem(dia)}</div>
@@ -635,6 +638,113 @@ function telaProgMaq(m) {
   const tot = ops.reduce((s, o) => s + o.minutos, 0); let dia = null;
   return head(`${voltar()}<div class="hi">${ops.length} operações · ${hMin(tot)} no total</div><h1>${esc(m)}</h1>`) +
   `<div class="main">${ops.map(o => { const t = o.data_ini !== dia ? `<div class="sec">${dSem(o.data_ini)}${o.data_ini < hoje() ? ' · conferir' : ''}</div>` : ''; dia = o.data_ini; return t + cartaoOp(o, false); }).join('')}</div>`;
+}
+
+/* ---------- fluxo real das O.F.s na fábrica (gestor e suporte) ---------- */
+const GEMEA_FX = { 'RISCADOR 2200': 'RISCADOR 1 2600', 'JATO 1200': 'CV(JATO 1)2100' };
+let FX = null;
+const dhm = s => { if (!s) return ''; const d = new Date(s); return isNaN(d) ? '' : pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + ' às ' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+async function atualizaApont() {
+  try { S.apont = await todos('apontamentos'); S.apontEm = new Date(); FX = null; S._keep = true; render(); } catch (e) { console.error(e); }
+}
+/* rota de cada O.F.: máquinas da programação (versão mais nova em que a O.F. aparece), na ordem programada;
+   situação de cada máquina vem dos apontamentos do app da fábrica (fim registrado = feita) */
+function fluxo() {
+  if (FX) return FX;
+  const A = {}; (S.apont || []).forEach(a => { A[a.chave] = a; });
+  const ult = {}, verG = (S.prog || []).reduce((m, o) => o.versao > m ? o.versao : m, '');
+  (S.prog || []).forEach(o => { const k = String(o.ofn); if (!ult[k] || o.versao > ult[k]) ult[k] = o.versao; });
+  const R = {}, ordemMaq = [];
+  (S.prog || []).slice().sort((a, b) => (a.id || 0) - (b.id || 0)).forEach(o => {
+    const k = String(o.ofn), m = GEMEA_FX[o.maquina] || o.maquina;
+    if (o.versao === verG && !ordemMaq.includes(m)) ordemMaq.push(m);
+    if (o.versao !== ult[k]) return;
+    const r = R[k] = R[k] || { of: k, ops: [], o, ver: o.versao };
+    if (!r.ops.some(x => x.m === m)) r.ops.push({ m, d: (o.data_ini || '') + ' ' + (o.ini || ''), o });
+  });
+  Object.values(R).forEach(r => {
+    r.ops.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
+    r.ops.forEach(x => { const a = A[x.m + '|' + x.o.ofn]; x.a = a; x.st = !a ? 'fila' : (a.fim || a.ja_feita) ? 'feita' : 'rodando'; });
+    const last = r.ops[r.ops.length - 1];
+    r.pronta = last.st === 'feita'; r.ultima = last.m;
+    r.feitas = r.ops.filter(x => x.st === 'feita').length;
+    r.atual = r.ops.find(x => x.st === 'rodando') || r.ops.find(x => x.st !== 'feita') || null;
+    r.produzido = last.a && last.a.qtd != null ? Number(last.a.qtd) : null;
+    r.prontaEm = r.pronta && last.a ? last.a.fim : null;
+    r.it = itemDaOF(r.of); r.s = r.it ? situacao(r.it) : null;
+    r.vivo = r.it ? r.s.aberto : r.ver === verG;
+  });
+  FX = { R, ordemMaq };
+  return FX;
+}
+const fxDe = of => fluxo().R[String(of)] || null;
+function prontasExpedir() { return Object.values(fluxo().R).filter(r => r.pronta && r.it && r.s.aberto); }
+/* pedido completo: todo item ainda em aberto do pedido já passou pela última máquina */
+function pedidosFluxo() {
+  const nums = [...new Set(Object.values(fluxo().R).filter(r => r.it && r.s.aberto).map(r => r.it.pedido))];
+  return nums.map(n => {
+    const its = itensDe(n).filter(i => situacao(i).aberto), rs = its.map(i => ({ it: i, r: fxDe(i.of) }));
+    return { n, p: pedidoDe(n) || {}, rs, completo: rs.length > 0 && rs.every(x => x.r && x.r.pronta), prontas: rs.filter(x => x.r && x.r.pronta).length };
+  }).filter(x => x.rs.length);
+}
+function rotaChips(r) {
+  return `<div class="chips-t">${r.ops.map(x => `<span class="tag${x.st === 'feita' ? ' ok' : x.st === 'rodando' ? ' p' : ''}">${x.st === 'feita' ? '✓ ' : x.st === 'rodando' ? '▶ ' : ''}${esc(x.m)}</span>`).join('')}</div>`;
+}
+function linhaFx(r) {
+  if (!r) return '<div class="sub">Sem programação no PCP para esta O.F.</div>';
+  if (r.pronta) return `<div class="sub"><b style="color:var(--ok)">✅ Pronta para expedir</b> · fechou na ${esc(r.ultima)}${r.prontaEm ? ' em ' + dhm(r.prontaEm) : ''}${r.produzido != null ? ' · ' + fmtQ(r.produzido) + ' un. produzidas' : ''}</div>`;
+  if (!r.feitas && (!r.atual || r.atual.st !== 'rodando')) return `<div class="sub">Aguardando produção · 1ª máquina: ${esc(r.ops[0].m)}</div>`;
+  return `<div class="sub">🏭 Em produção · ${r.feitas} de ${r.ops.length} máquinas · ${r.atual.st === 'rodando' ? 'rodando agora na ' : 'próxima: '}${esc(r.atual.m)}</div>`;
+}
+function cardFx(r, comBaixa) {
+  const it = r.it, s = r.s, p = it ? pedidoDe(it.pedido) || {} : {};
+  const nome = it ? nomeCli(p) : r.o.cliente, prod = it ? it.produto : r.o.referencia;
+  let bx = '';
+  if (comBaixa && it && s.aberto) bx = S.confBaixa === it.of
+    ? `<div class="field"><label for="bx_${esc(it.of)}">Justificativa da baixa (obrigatória)</label><input id="bx_${esc(it.of)}" placeholder="Ex.: produção encerrada, sobra vai para o estoque"></div><div class="confirm"><button class="btn sm" data-act="baixar" data-obrig="1" data-ref="${esc(it.of)}">Confirmar baixa</button><button class="btn ghost sm" data-act="cancbaixa">Cancelar</button></div>`
+    : `<div class="confirm">${it ? `<button class="btn ghost sm" data-act="pedido" data-ref="${it.pedido}">Ver pedido</button>` : ''}<button class="btn sm" data-act="pedebaixa" data-ref="${esc(it.of)}">Dar baixa na O.F.</button></div>`;
+  return `<div class="card${r.pronta ? '' : s && s.atrasado ? ' over' : ''}"${r.pronta ? ' style="border-left:4px solid var(--ok)"' : ''}><div class="row"><span class="name">${esc(nome || '')}</span><b class="num">O.F. ${esc(r.of)}</b></div>
+   <div class="txt">${esc(prod || '')}${it ? ' · Pedido ' + esc(it.pedido) : ''}${it && it.entrega ? ' · entrega ' + dm(it.entrega) : ''}</div>
+   ${rotaChips(r)}${linhaFx(r)}
+   ${it ? `<div class="stats"><div class="stat"><span>Pedida</span><b>${fmtQ(s.qtd)}</b></div><div class="stat"><span>Produzida</span><b>${r.produzido != null ? fmtQ(r.produzido) : '–'}</b></div><div class="stat"><span>Faturada</span><b>${fmtQ(s.fat)}</b></div></div>` : ''}${bx}</div>`;
+}
+function telaFluxo() {
+  const F = fluxo(), qq = norm(S.qfx || ''), vis = S.fxv || 'prontas';
+  const casa = r => !qq || String(r.of).includes(qq) || (r.it && String(r.it.pedido).includes(qq)) || norm(r.it ? nomeCli(pedidoDe(r.it.pedido) || {}) : r.o.cliente).includes(qq) || norm(r.it ? r.it.produto : r.o.referencia).includes(qq);
+  const prontas = prontasExpedir(), peds = pedidosFluxo(), comp = peds.filter(x => x.completo);
+  const vivos = Object.values(F.R).filter(r => r.vivo), rod = vivos.reduce((s, r) => s + r.ops.filter(x => x.st === 'rodando').length, 0);
+  const atual = S.apontEm ? 'atualizado às ' + pad(S.apontEm.getHours()) + ':' + pad(S.apontEm.getMinutes()) : 'carregando…';
+  const topoH = `${voltar()}<div class="hi">Apontamentos do app da fábrica · ${atual}</div><h1>Fluxo das O.F.s</h1><div class="kpis"><div class="kpi gold"><strong>${prontas.length}</strong><span>prontas p/ expedir</span></div><div class="kpi"><strong>${comp.length}</strong><span>pedidos completos</span></div><div class="kpi"><strong>${rod}</strong><span>rodando agora</span></div></div><div class="search"><input id="qfx" type="search" placeholder="O.F., pedido, cliente ou produto" value="${esc(S.qfx || '')}" aria-label="Buscar no fluxo"></div>`;
+  const chips = `<div class="chips">${[['prontas', 'Prontas p/ expedir'], ['pedidos', 'Por pedido'], ['maquinas', 'Por máquina']].map(([k, t]) => `<button class="chip" data-act="fxv" data-v="${k}" aria-pressed="${vis === k}">${t}</button>`).join('')}<button class="chip" data-act="fxatual">↻ Atualizar</button></div>`;
+  let corpo = '';
+  if (!(S.prog || []).length) corpo = '<div class="empty"><b>Programação do PCP não carregada</b><span>O fluxo usa a programação e os apontamentos da fábrica.</span></div>';
+  else if (vis === 'prontas') {
+    const l = prontas.filter(casa).sort((a, b) => (b.prontaEm || '') > (a.prontaEm || '') ? 1 : -1);
+    const cps = comp.filter(x => x.rs.some(y => y.r && casa(y.r)));
+    corpo = (cps.length ? `<div class="sec">Pedidos completos · ${cps.length}</div>` + cps.map(x => `<button class="card" data-act="pedido" data-ref="${x.n}" style="border-left:4px solid var(--ok)"><div class="row"><span class="name">${esc(nomeCli(x.p))}</span><span class="tag ok">PEDIDO COMPLETO</span></div><div class="sub">Pedido ${x.n} · ${x.rs.length} ${x.rs.length === 1 ? 'O.F.' : 'O.F.s'} prontas: ${x.rs.map(y => esc(y.it.of)).join(', ')} · ${esc(primeiro(x.p.vendedor || ''))}</div></button>`).join('') : '')
+      + `<div class="sec">O.F.s prontas · ${l.length}</div>` + (l.length ? l.map(r => cardFx(r, true)).join('') : '<div class="empty"><b>Nenhuma O.F. pronta agora</b><span>Assim que a fábrica fechar a última máquina de uma O.F., ela aparece aqui.</span></div>');
+  } else if (vis === 'pedidos') {
+    const l = peds.filter(x => x.rs.some(y => y.r && casa(y.r)) || (qq && String(x.n).includes(qq))).sort((a, b) => (b.completo - a.completo) || (b.prontas / b.rs.length - a.prontas / a.rs.length) || a.n - b.n);
+    corpo = l.slice(0, 120).map(x => `<div class="card"${x.completo ? ' style="border-left:4px solid var(--ok)"' : ''}><div class="row"><span class="name">${esc(nomeCli(x.p))}</span>${x.completo ? '<span class="tag ok">PEDIDO COMPLETO</span>' : `<span class="tag">${x.prontas} de ${x.rs.length} prontas</span>`}</div>
+      <div class="sub">Pedido ${x.n} · ${esc(primeiro(x.p.vendedor || ''))}</div>
+      ${x.rs.map(y => `<div style="border-top:1px solid var(--line);padding-top:6px;margin-top:4px"><div class="txt"><b>O.F. ${esc(y.it.of)}</b> · ${esc(y.it.produto || '')} · ${fmtQ(y.it.qtd)} un.</div>${y.r ? rotaChips(y.r) : ''}${linhaFx(y.r)}</div>`).join('')}
+      <div class="confirm"><button class="btn ghost sm" data-act="pedido" data-ref="${x.n}">Ver pedido</button></div></div>`).join('') || '<div class="empty"><b>Nada encontrado</b></div>';
+  } else {
+    const h = hoje();
+    corpo = F.ordemMaq.map(m => {
+      const ops = vivos.filter(casa).map(r => ({ r, x: r.ops.find(y => y.m === m) })).filter(z => z.x);
+      const rodando = ops.filter(z => z.x.st === 'rodando');
+      const chegou = ops.filter(z => z.x.st === 'fila' && z.r.ops.slice(0, z.r.ops.indexOf(z.x)).every(y => y.st === 'feita')).sort((a, b) => a.x.d < b.x.d ? -1 : 1);
+      const feitasHoje = ops.filter(z => z.x.st === 'feita' && z.x.a && z.x.a.fim && iso(new Date(z.x.a.fim)) === h);
+      if (!rodando.length && !chegou.length && !feitasHoje.length) return '';
+      const lin = (z, t) => `<div class="sub">${t} <b>O.F. ${esc(z.r.of)}</b> · ${esc(z.r.it ? nomeCli(pedidoDe(z.r.it.pedido) || {}) : z.r.o.cliente)} · ${esc(z.r.it ? z.r.it.produto : z.r.o.referencia)}${z.x.a && z.x.st === 'rodando' ? ' · desde ' + dhm(z.x.a.ini) : ''}${z.x.st === 'feita' && z.x.a.qtd != null ? ' · ' + fmtQ(z.x.a.qtd) + ' un.' : ''}${z.r.ops[z.r.ops.length - 1] === z.x ? ' · <b>última máquina</b>' : ''}</div>`;
+      return `<div class="card"><div class="row"><span class="name">${esc(m)}</span><b class="num">${rodando.length ? '▶ rodando' : 'parada'}</b></div>
+        ${rodando.map(z => lin(z, '▶ Agora:')).join('')}
+        ${chegou.length ? `<div class="sub" style="margin-top:4px"><b>Na fila (já chegou da máquina anterior): ${chegou.length}</b></div>` + chegou.slice(0, 6).map(z => lin(z, '•')).join('') + (chegou.length > 6 ? `<div class="sub">e mais ${chegou.length - 6}</div>` : '') : ''}
+        ${feitasHoje.length ? `<div class="sub" style="margin-top:4px"><b>Feitas hoje: ${feitasHoje.length}</b></div>` + feitasHoje.map(z => lin(z, '✓')).join('') : ''}</div>`;
+    }).join('') || '<div class="empty"><b>Nenhuma máquina com movimento</b></div>';
+  }
+  return head(topoH) + `<div class="main">${chips}${corpo}</div>`;
 }
 
 /* ---------- notas fiscais ---------- */
@@ -766,6 +876,7 @@ function render() {
     else if (v && v.t === 'ajuda') html = telaAjuda();
     else if (v && v.t === 'pmaq') html = telaProgMaq(v.ref);
     else if (v && v.t === 'preal') html = telaProgReal();
+    else if (v && v.t === 'fluxo') html = telaFluxo();
     else html = ({ pend: telaPend, cart: telaCarteira, busca: telaBusca, ped: telaPedidos, num: gestor() ? telaEquipe : telaNumeros, entregas: telaEntregas, nfs: telaNFs, prog: veTudo() ? telaProg : telaPend })[S.tab]();
     const abas = suporte() ? [['entregas', 'truck', 'Entregas'], ['ped', 'box', 'Pedidos'], ['nfs', 'doc', 'Notas fiscais'], ['prog', 'cog', 'PCP']]
       : [['pend', 'cal', 'Pendências'], ['cart', 'users', 'Carteira'], ['busca', 'search', 'Buscar'], ['ped', 'box', 'Pedidos'], ['num', 'chart', gestor() ? 'Equipe' : 'Números']].concat(gestor() ? [['prog', 'cog', 'PCP']] : []);
@@ -796,6 +907,9 @@ document.addEventListener('click', async e => {
   else if (a === 'pdia') { S.pdia = v; S._keep = true; render(); }
   else if (a === 'pmaq') ir({ t: 'pmaq', ref: b.dataset.ref });
   else if (a === 'preal') ir({ t: 'preal' });
+  else if (a === 'fluxo') { ir({ t: 'fluxo' }); atualizaApont(); }
+  else if (a === 'fxv') { S.fxv = v; S.confBaixa = null; S._keep = true; render(); }
+  else if (a === 'fxatual') { toast('Atualizando…'); await atualizaApont(); }
   else if (a === 'pedido') ir({ t: 'pedido', ref: b.dataset.ref });
   else if (a === 'fichacli') ir({ t: 'ficha', tipo: 'C', ref: b.dataset.ref, resp: v });
   else if (a === 'nf') ir({ t: 'nf', ref: b.dataset.ref });
@@ -832,6 +946,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'qped') { S.qped = e.target.value; S._keep = true; render(); }
   if (e.target.id === 'qnf') { S.qnf = e.target.value; S._keep = true; render(); }
   if (e.target.id === 'qprog') { S.qprog = e.target.value; S._keep = true; render(); }
+  if (e.target.id === 'qfx') { S.qfx = e.target.value; S._keep = true; render(); }
 });
 document.addEventListener('change', async e => {
   if (e.target.id === 'fvend') { S.fvend = e.target.value; S._keep = true; render(); return; }
@@ -938,8 +1053,9 @@ async function acaoPedidos(a, b) {
     } else if (a === 'baixar' || a === 'desfazbaixa') {
       const it = S.itens.find(i => i.of === b.dataset.ref), sim = a === 'baixar';
       const motivo = sim ? (val('bx_' + it.of) || null) : null;
+      if (sim && b.dataset.obrig && !motivo) { toast('Escreva a justificativa da baixa.'); return; }
       const { data, error } = await sb.from('pedido_itens').update({ baixado: sim, baixa_motivo: motivo }).eq('of', it.of).select().single(); if (error) throw error;
-      Object.assign(it, data); S.confBaixa = null; S._keep = true; render(); toast(sim ? 'Saldo baixado. Item atendido.' : 'Baixa desfeita.');
+      Object.assign(it, data); FX = null; S.confBaixa = null; S._keep = true; render(); toast(sim ? 'Saldo baixado. Item atendido.' : 'Baixa desfeita.');
     } else if (a === 'ligar') {
       const x = S.nfItens.find(y => y.id === b.dataset.ref), of = val('lig_' + x.id);
       if (!of) { toast('Escolha a O.F.'); return; }
