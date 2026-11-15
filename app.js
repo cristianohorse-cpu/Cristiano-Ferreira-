@@ -68,7 +68,7 @@ async function carregar() {
   S.itens = it; S.parcelas = pa; S.variacao = va; S.nfs = nf; S.nfItens = ni;
   try { S.avisos = await todos('avisos'); } catch (e) { S.avisos = []; }
   if (S.papel === 'gestor' || S.papel === 'suporte') S.vendedores = await todos('vendedores');
-  if (S.papel === 'gestor' || S.papel === 'suporte') { try { S.prog = await todos('programacao'); } catch (e) { S.prog = []; } }
+  if (S.papel === 'gestor' || S.papel === 'suporte') { try { S.prog = await todos('programacao'); } catch (e) { S.prog = []; } try { S.prel = await todos('pcp_relatorio'); } catch (e) { S.prel = []; } }
   if (S.papel === 'gestor') { try { S.real = await todos('programacao_real'); } catch (e) { S.real = []; } }
   if (S.papel === 'gestor' || S.papel === 'suporte') { try { S.apont = await todos('apontamentos'); S.apontEm = new Date(); } catch (e) { S.apont = []; } }
   FX = null; COB = null; S.carregado = true;
@@ -701,7 +701,7 @@ function telaProg() {
   const toMin = t => +t.slice(0, 2) * 60 + +t.slice(3); const heMaq = {};
   l.filter(o => o.he_min).forEach(o => { const f = o.data_fim === o.data_ini ? toMin(o.fim) : 0, j = heMaq[o.maquina] = heMaq[o.maquina] || { dia: o.data_ini, fim: 1000 }; if (f > j.fim) j.fim = f; });
   const he = Object.values(heMaq).reduce((s, j) => s + j.fim - 1000, 0), maqs = [...new Set(l.slice().sort((a, b) => a.id - b.id).map(o => o.maquina))];
-  const topoH = topo(`<div class="hi">Teste · versão de ${dm(l[0].versao)} · tempos com 15% a mais</div><h1>Programação</h1><div class="kpis"><div class="kpi"><strong>${Object.keys(porOF).length}</strong><span>O.F.s</span></div><div class="kpi${atr ? ' bad' : ''}"><strong>${atr}</strong><span>O.F.s atrasadas</span></div><div class="kpi gold"><strong>${he ? hMin(he) : '0'}</strong><span>hora extra</span></div></div><div class="search"><input id="qprog" type="search" placeholder="O.F., F.T., pedido ou cliente" value="${esc(S.qprog || '')}" aria-label="Buscar na programação"></div>`);
+  const topoH = topo(`<div class="hi">${l[0].versao >= '2026-11-16' ? 'Versão de ' + dm(l[0].versao) + ' · tempos reais da fábrica' : 'Teste · versão de ' + dm(l[0].versao) + ' · tempos com 15% a mais'}</div><h1>Programação</h1><div class="kpis"><div class="kpi"><strong>${Object.keys(porOF).length}</strong><span>O.F.s</span></div><div class="kpi${atr ? ' bad' : ''}"><strong>${atr}</strong><span>O.F.s atrasadas</span></div><div class="kpi gold"><strong>${he ? hMin(he) : '0'}</strong><span>hora extra</span></div></div><div class="search"><input id="qprog" type="search" placeholder="O.F., F.T., pedido ou cliente" value="${esc(S.qprog || '')}" aria-label="Buscar na programação"></div>`);
   if (qq) {
     const achou = l.filter(o => { const it = itemDaOF(o.ofn); return String(o.ofn).includes(qq) || String(o.ft).includes(qq) || norm(o.cliente).includes(qq) || norm(o.referencia).includes(qq) || (it && String(it.pedido).includes(qq)); })
       .sort((a, b) => (a.ofn - b.ofn) || (a.data_ini + a.ini > b.data_ini + b.ini ? 1 : -1));
@@ -712,12 +712,30 @@ function telaProg() {
   return head(topoH) + `<div class="main"><div class="chips">${dias.map(d => `<button class="chip" data-act="pdia" data-v="${d}" aria-pressed="${d === dia}">${dSem(d)}</button>`).join('')}</div>
    ${dia < hoje() ? '<div class="alert"><span class="lbl">DIA QUE JÁ PASSOU</span><span class="txt">Estas linhas ficam só para conferir se foram produzidas.</span></div>' : ''}
    ${Object.values(heMaq).some(j => j.dia === dia) ? `<div class="alert"><span class="lbl">HORA EXTRA · ${dSem(dia)}</span>${Object.entries(heMaq).filter(([, j]) => j.dia === dia).map(([m, j]) => `<span class="txt">${esc(m)}: 16:40 às ${pad(Math.floor(j.fim / 60))}:${pad(j.fim % 60)} (${hMin(j.fim - 1000)})</span>`).join('')}</div>` : ''}
+   ${relPaula() ? `<button class="card" data-act="prel"><div class="row"><span class="name">📋 Relatório da Paula</span><b class="num">abrir</b></div><div class="sub">${esc(relPaula().dados.titulo)} · regras, prioridades, o que mudou no PCBOOT e pendências.</div></button>` : ''}
    <button class="card" data-act="fluxo"><div class="row"><span class="name">🏭 Fluxo real das O.F.s</span><b class="num">abrir</b></div><div class="sub">Máquina por máquina, prontas para expedir e pedidos completos.</div></button>
    ${S.papel === 'gestor' ? `<a class="card" href="tecnico.html" style="display:block;text-decoration:none;color:inherit"><div class="row"><span class="name">Fábrica agora e consulta técnica</span><b class="num">abrir</b></div><div class="sub">Apontamentos do app da fábrica em tempo real, busca por O.F., F.T. e máquina.</div></a>` : ''}
    ${(S.real || []).length ? `<button class="card" data-act="preal"><div class="row"><span class="name">Realizado no teste</span><b class="num">${(S.real || []).length} registros</b></div><div class="sub">Tempos do celular do Rogério, com máquina, O.F. e previsto × real.</div></button>` : ''}
    <div class="sec">Carga por máquina · ${dSem(dia)}</div>
    ${cards.map(c => { const pct = Math.round(c.min / cap * 100), st = c.ops.find(o => avisosOp(o).some(t => t.startsWith('Prioridade'))); return `<button class="card" data-act="pmaq" data-ref="${esc(c.m)}"><div class="row"><span class="name">${esc(c.m)}</span><b class="num">${hMin(c.min)}</b></div><div class="barra" role="img" aria-label="${pct}% das horas do dia"><i class="${pct > 100 ? 'bad' : pct >= 80 ? 'warn' : ''}" style="width:${Math.min(pct, 100)}%"></i></div><div class="sub">${c.ops.length} ${c.ops.length === 1 ? 'operação' : 'operações'} · ${pct}% do turno${st ? ' · tem Stanley prioritária' : ''}</div></button>`; }).join('')}
    <button class="btn ghost sm" data-act="sair" style="align-self:center">${svg('out', 16)} Sair</button></div>`;
+}
+function relPaula() { const l = S.prel || []; return l.reduce((m, x) => (!m || x.versao > m.versao ? x : m), null); }
+function telaPcpRel() {
+  const r = relPaula(); if (!r) return head(`${voltar()}<h1>Relatório da Paula</h1>`) + '<div class="main"><div class="empty"><b>Relatório ainda não carregado</b></div></div>';
+  const d = r.dados, mq = d.mudancas || {}, nm = Object.values(mq).reduce((s, a) => s + a.length, 0), qq = norm(S.qrel || '');
+  const pas = x => `${dSem(x.de)} seq. ${x.seq_de} → ${x.de !== x.para ? '<b>' + dSem(x.para) + '</b>' : dSem(x.para)} seq. <b>${x.seq_para}</b>`;
+  const lista = Object.entries(mq).map(([m, a]) => { const f = a.filter(x => !qq || String(x.of).includes(qq) || norm(x.cli).includes(qq) || norm(m).includes(qq)); return f.length ? `<div class="sec">${esc(m)} · ${f.length}</div>` + f.map(x => `<div class="card"><div class="row"><span class="name">${esc(x.cli || '–')}</span><b class="num">O.F. ${esc(x.of)}</b></div><div class="sub">${pas(x)}${x.q ? ' · ' + fmtQ(x.q) + ' un.' : ''}</div></div>`).join('') : ''; }).join('');
+  return head(`${voltar()}<div class="hi">${esc(d.feito || '')}</div><h1>${esc(d.titulo)}</h1><div class="kpis"><div class="kpi"><strong>${nm}</strong><span>mudanças no PCBOOT</span></div><div class="kpi${(d.pendencias || []).length ? ' gold' : ''}"><strong>${(d.pendencias || []).length}</strong><span>pendências</span></div><div class="kpi"><strong>${(d.adiadas || []).length}</strong><span>adiadas</span></div></div>`) +
+  `<div class="main">
+   <div class="sec">Regras usadas</div><div class="card">${(d.regras || []).map(t => `<div class="sub">• ${esc(t)}</div>`).join('')}</div>
+   <div class="sec">Prioridades</div>${(d.prioridades || []).map(p => `<div class="card"><div class="row"><span class="name">${esc(p.t)}</span></div><div class="sub">${esc(p.d)}</div></div>`).join('')}
+   <div class="sec">Pendências</div>${(d.pendencias || []).map(p => `<div class="card"><div class="row"><span class="name">${esc(p.t)}</span>${p.quem ? `<span class="tag p">${esc(p.quem)}</span>` : ''}</div><div class="sub">${esc(p.d)}</div></div>`).join('')}
+   ${(d.adiadas || []).length ? `<div class="sec">Passaram para depois</div>` + d.adiadas.map(a => `<div class="card"><div class="row"><span class="name">${esc(a.cli || '–')}</span><b class="num">O.F. ${esc(a.of)}</b></div><div class="sub">Para ${esc(dSem(a.p))}</div></div>`).join('') : ''}
+   ${(d.renumeradas || []).length ? `<div class="sec">Sequência renumerada 1, 2, 3…</div><div class="card">${d.renumeradas.map(x => `<div class="sub">• ${esc(x.m)} · ${esc(dSem(x.d))} · 1 a ${x.n}</div>`).join('')}</div>` : ''}
+   <div class="sec">O que mudou no PCBOOT · por máquina</div>
+   <div class="search"><input id="qrel" type="search" placeholder="Buscar O.F., cliente ou máquina" value="${esc(S.qrel || '')}" aria-label="Buscar nas mudanças"></div>
+   ${lista || '<div class="empty"><b>Nada encontrado</b></div>'}</div>`;
 }
 function telaProgReal() {
   const todos = S.real || [], dias = [...new Set(todos.map(r => r.data))].sort().reverse(), dia = dias[0] || '';
@@ -971,6 +989,7 @@ function render() {
     else if (v && v.t === 'ajuda') html = telaAjuda();
     else if (v && v.t === 'pmaq') html = telaProgMaq(v.ref);
     else if (v && v.t === 'preal') html = telaProgReal();
+    else if (v && v.t === 'prel') html = telaPcpRel();
     else if (v && v.t === 'fluxo') html = telaFluxo();
     else if (v && v.t === 'cobranca') html = telaCobranca(v.vend);
     else html = ({ pend: telaPend, cart: telaCarteira, busca: telaBusca, ped: telaPedidos, num: gestor() ? telaEquipe : telaNumeros, entregas: telaEntregas, nfs: telaNFs, prog: veTudo() ? telaProg : telaPend })[S.tab]();
@@ -1003,6 +1022,7 @@ document.addEventListener('click', async e => {
   else if (a === 'pdia') { S.pdia = v; S._keep = true; render(); }
   else if (a === 'pmaq') ir({ t: 'pmaq', ref: b.dataset.ref });
   else if (a === 'preal') ir({ t: 'preal' });
+  else if (a === 'prel') ir({ t: 'prel' });
   else if (a === 'fluxo') { ir({ t: 'fluxo' }); atualizaApont(); }
   else if (a === 'fxv') { S.fxv = v; S.confBaixa = null; S._keep = true; render(); }
   else if (a === 'fxatual') { toast('Atualizando…'); await atualizaApont(); }
@@ -1046,6 +1066,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'qnf') { S.qnf = e.target.value; S._keep = true; render(); }
   if (e.target.id === 'qprog') { S.qprog = e.target.value; S._keep = true; render(); }
   if (e.target.id === 'qcob') { S.qcob = e.target.value; S._keep = true; render(); }
+  if (e.target.id === 'qrel') { S.qrel = e.target.value; S._keep = true; render(); }
   if (e.target.id === 'qfx') { S.qfx = e.target.value; S._keep = true; render(); }
 });
 document.addEventListener('change', async e => {
