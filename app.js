@@ -71,7 +71,7 @@ async function carregar() {
   if (S.papel === 'gestor' || S.papel === 'suporte') { try { S.prog = await todos('programacao'); } catch (e) { S.prog = []; } }
   if (S.papel === 'gestor') { try { S.real = await todos('programacao_real'); } catch (e) { S.real = []; } }
   if (S.papel === 'gestor' || S.papel === 'suporte') { try { S.apont = await todos('apontamentos'); S.apontEm = new Date(); } catch (e) { S.apont = []; } }
-  FX = null; S.carregado = true;
+  FX = null; COB = null; S.carregado = true;
 }
 const gestor = () => S.papel === 'gestor';
 const meus = l => l.filter(x => (x.resp || x.vendedor) === S.eu);
@@ -146,6 +146,63 @@ function proximo(prox, hora, acao) {
 }
 
 /* ---------------- telas ---------------- */
+/* ---------- agenda de contatos (cobrança do Fernandinho) ----------
+   Regra: todo cliente da carteira precisa de contato registrado dentro do prazo.
+   Prazo: 30 dias para Faixa A ou quem comprou/abriu em 2026; 60 dias para Faixa B; 180 dias para os demais.
+   Retorno marcado para o futuro conta como agendado (em dia até a data marcada). */
+const PRAZO_CONTATO = c => (c.faixa === 'A' || /Ativo|Aberto/i.test(c.segmento || '')) ? 30 : c.faixa === 'B' ? 60 : 180;
+const diasDe = (s, n) => { const d = new Date(s + 'T12:00:00'); d.setDate(d.getDate() + n); return iso(d); };
+let COB = null;
+function cobranca(vend) {
+  COB = COB || {};
+  if (COB[vend]) return COB[vend];
+  const ult = ultimosPorCliente(vend), h = hoje(), sem = addDias(7);
+  const l = S.clientes.filter(c => c.resp === vend).map(c0 => {
+    const c = cliente(c0.codigo, vend) || c0, u = ult.get(vend + '|' + c.codigo), prazo = PRAZO_CONTATO(c);
+    if (u && u.etapa === 'Dados incorretos') return null;
+    const ultData = u ? u.data : null, prazoFinal = ultData ? diasDe(ultData, u.etapa === 'Sem interesse' ? 180 : prazo) : null;
+    const vence = u && u.prox && u.prox > (prazoFinal || '') ? u.prox : prazoFinal;
+    const st = !ultData ? 'nunca' : vence < h ? 'vencido' : vence <= sem ? 'semana' : 'emdia';
+    const dias = ultData ? diasEntre(ultData, h) : null;
+    return { c, u, prazo, ultData, vence, st, dias, peso: (prazo === 30 ? 3 : prazo === 60 ? 2 : 1) };
+  }).filter(Boolean);
+  const pri = (a, b) => (b.peso - a.peso) || ((b.c.vendas_2026 || 0) - (a.c.vendas_2026 || 0)) || ((a.vence || '0') < (b.vence || '0') ? -1 : 1);
+  const atras = l.filter(x => x.st === 'nunca' || x.st === 'vencido').sort(pri);
+  // cota do dia: zera o atraso dentro do próprio prazo (≈ 20 dias úteis por mês)
+  const cota = atras.length ? Math.max(3, Math.ceil(atras.reduce((s, x) => s + 1 / (x.prazo * 20 / 30), 0))) : 0;
+  return (COB[vend] = { l, atras, cota: Math.min(cota, atras.length), hoje: atras.slice(0, cota), semana: l.filter(x => x.st === 'semana').sort(pri),
+    nunca: l.filter(x => x.st === 'nunca').length, venc: l.filter(x => x.st === 'vencido').length, emdia: l.filter(x => x.st === 'emdia' || x.st === 'semana').length });
+}
+const tagCob = x => x.st === 'nunca' ? '<span class="tag bad">Nunca contatado</span>' : x.st === 'vencido' ? `<span class="tag bad">${x.dias} dias sem contato</span>` : x.st === 'semana' ? `<span class="tag p">Vence ${dm(x.vence)}</span>` : `<span class="tag ok">Em dia até ${dm(x.vence)}</span>`;
+const cardCob = (x, vend) => `<button class="card${x.st === 'nunca' || x.st === 'vencido' ? ' over' : ''}" data-act="abrir" data-tipo="C" data-ref="${esc(x.c.codigo)}"${vend !== S.eu ? ` data-resp="${esc(vend)}"` : ''}><div class="row"><span class="name">${esc(x.c.nome)}</span>${tagCob(x)}</div>
+  <div class="sub">Faixa ${esc(x.c.faixa || '–')} · contato a cada ${x.prazo} dias · ${x.c.vendas_2026 ? '2026: ' + brl(x.c.vendas_2026) : 'sem compras em 2026'}${x.ultData ? ' · último ' + dm(x.ultData) : ''}</div>
+  <div class="sub">${esc(titulo(x.c.cidade || ''))}${x.c.telefone ? ' · ' + esc(x.c.telefone) : ''}${x.c.contato ? ' · ' + esc(x.c.contato) : ''}</div></button>`;
+function blocoCobranca() {
+  const k = cobranca(S.eu); if (!k.l.length) return '';
+  if (!k.atras.length) return `<div class="sec ok">📞 Agenda de contatos · tudo em dia</div>`;
+  return `<div class="sec gold" style="display:flex;align-items:center;gap:6px">${FERN_SVG(20)} Contatos de hoje · ${k.hoje.length}</div>` + k.hoje.map(x => cardCob(x, S.eu)).join('') +
+    `<button class="btn ghost sm" data-act="cobranca" style="align-self:flex-start">Ver a agenda completa · ${k.atras.length} fora do prazo</button>`;
+}
+function telaCobranca(vend) {
+  vend = vend || S.eu;
+  const k = cobranca(vend), f = S.fcob || 'atras', q = norm(S.qcob || '');
+  const base = f === 'atras' ? k.atras : f === 'semana' ? k.semana : f === 'nunca' ? k.l.filter(x => x.st === 'nunca') : k.l.filter(x => x.st === 'emdia').sort((a, b) => a.vence < b.vence ? -1 : 1);
+  const l = base.filter(x => !q || norm(x.c.nome).includes(q) || norm(x.c.cidade || '').includes(q));
+  const pct = k.l.length ? Math.round(k.emdia / k.l.length * 100) : 100;
+  return head(`${voltar()}<div class="hi">${vend === S.eu ? 'Sua carteira' : esc(titulo(vend))} · ${k.l.length} clientes</div><h1>Agenda de contatos</h1><div class="kpis"><div class="kpi gold"><strong>${pct}%</strong><span>em dia</span></div><div class="kpi${k.venc ? ' bad' : ''}"><strong>${k.venc}</strong><span>fora do prazo</span></div><div class="kpi${k.nunca ? ' bad' : ''}"><strong>${k.nunca}</strong><span>nunca contatados</span></div></div><div class="search"><input id="qcob" type="search" placeholder="Cliente ou cidade" value="${esc(S.qcob || '')}" aria-label="Buscar na agenda"></div>`) +
+  `<div class="main"><div class="fern"><span class="av">${FERN_SVG(44)}</span><div class="bal"><span class="quem">Fernandinho · agenda de contatos</span><div class="fala">${k.atras.length ? `Para colocar a carteira em dia, a meta é <b>${k.cota} contato${k.cota === 1 ? '' : 's'} por dia útil</b>. Comece pelos de cima: Faixa A e quem compra mais.` : 'Carteira em dia. Continue registrando cada contato no app.'}</div><div class="dica">Prazo de contato: Faixa A ou cliente ativo em 2026, a cada 30 dias · Faixa B, 60 dias · demais, 180 dias. Só vale contato registrado no app.</div></div></div>
+  <div class="chips" role="group" aria-label="Filtrar">${[['atras', `Fora do prazo · ${k.atras.length}`], ['semana', `Vencem em 7 dias · ${k.semana.length}`], ['nunca', `Nunca contatados · ${k.nunca}`], ['emdia', 'Em dia']].map(([c, t]) => `<button class="chip" data-act="fcob" data-v="${c}" aria-pressed="${f === c}">${t}</button>`).join('')}</div>
+  ${l.slice(0, 150).map(x => cardCob(x, vend)).join('') || '<div class="empty"><b>Nada nesta lista</b></div>'}
+  ${l.length > 150 ? `<p class="note">Mostrando 150 de ${l.length}. Use a busca para achar os outros.</p>` : ''}</div>`;
+}
+function blocoCobrancaEquipe() {
+  const nomes = [...new Set(S.clientes.map(c => c.resp).filter(Boolean))].sort();
+  const linhas = nomes.map(v => { const k = cobranca(v); return { v, n: k.l.length, pct: k.l.length ? Math.round(k.emdia / k.l.length * 100) : 100, venc: k.venc, nunca: k.nunca, cota: k.cota }; }).filter(x => x.n).sort((a, b) => a.pct - b.pct);
+  return `<div class="card"><div class="h2" style="display:flex;align-items:center;gap:6px">${FERN_SVG(22)} Agenda de contatos da equipe</div><div class="sub">Toque no vendedor para ver a agenda dele. Meta = contatos por dia útil para pôr a carteira em dia.</div><div class="scroll"><table class="tbl"><thead><tr><th>Vendedor</th><th style="text-align:right">Carteira</th><th style="text-align:right">Em dia</th><th style="text-align:right">Fora</th><th style="text-align:right">Nunca</th><th style="text-align:right">Meta</th></tr></thead><tbody>
+   ${linhas.map(l => `<tr data-act="cobranca" data-v="${esc(l.v)}" style="cursor:pointer"><td><u>${esc(titulo(l.v))}</u></td><td class="n">${l.n}</td><td class="n"${l.pct < 50 ? ' style="color:var(--bad);font-weight:600"' : ''}>${l.pct}%</td><td class="n">${l.venc}</td><td class="n">${l.nunca}</td><td class="n">${l.cota}</td></tr>`).join('')}
+   </tbody></table></div></div>`;
+}
+
 /* ---------- Fernandinho: a persona do CRM ---------- */
 const FERN_SVG = s => `<svg viewBox="0 0 48 48" width="${s}" height="${s}" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#0E4C5C"/><line x1="24" y1="8" x2="24" y2="13" stroke="#C8963E" stroke-width="2.5" stroke-linecap="round"/><circle cx="24" cy="7" r="3" fill="#E8C27A"/><rect x="8" y="20" width="4" height="9" rx="2" fill="#C8963E"/><rect x="36" y="20" width="4" height="9" rx="2" fill="#C8963E"/><rect x="11" y="13" width="26" height="23" rx="8" fill="#F2F6F7"/><circle cx="19" cy="23" r="3.3" fill="#0A3440"/><circle cx="29" cy="23" r="3.3" fill="#0A3440"/><circle cx="20.1" cy="21.9" r="1.1" fill="#fff"/><circle cx="30.1" cy="21.9" r="1.1" fill="#fff"/><path d="M18.5 29.5q5.5 4.2 11 0" stroke="#C8963E" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>`;
 (function () { const st = document.createElement('style'); st.textContent = '.fern{display:flex;gap:12px;align-items:flex-start;background:var(--card);border-radius:14px;padding:14px;border-left:4px solid var(--gold)}.fern .av{flex:none;line-height:0}.fern .bal{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}.fern .quem{font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--petrol);text-transform:uppercase}.fern .fala{font-size:15px;line-height:1.45}.fern .dica{font-size:13px;color:var(--muted)}.fern .x{background:none;border:0;color:var(--muted);font-size:20px;line-height:1;padding:0 2px;cursor:pointer;flex:none}'; document.head.appendChild(st); })();
@@ -170,7 +227,8 @@ function fernandinho() {
     if (nHj || nAtr) frases.push(`Hoje você tem ${nHj ? plural(nHj, 'retorno', 'retornos') + ' marcado' + (nHj === 1 ? '' : 's') : 'nenhum retorno marcado'}${nAtr ? ` e ${plural(nAtr, 'retorno atrasado', 'retornos atrasados')}` : ''}.`);
     if (meusPed) frases.push(`Entr${meusPed === 1 ? 'ou' : 'aram'} ${plural(meusPed, gestor() ? 'pedido novo' : 'pedido novo seu', gestor() ? 'pedidos novos' : 'pedidos novos seus')} desde ontem.`);
     if (ea) frases.push(`${gestor() ? 'Na empresa, ' : 'Dos seus pedidos, '}${plural(ea, 'entrega está atrasada', 'entregas estão atrasadas')}.`);
-    dica = nAtr ? 'Sugestão: comece pelos retornos atrasados; cliente esperando é venda escapando.' : nHj ? 'Sugestão: faça os retornos de hoje ainda pela manhã.' : '';
+    const kc = cobranca(S.eu); if (kc.atras.length) frases.push(`Você tem ${plural(kc.atras.length, 'cliente', 'clientes')} sem contato no prazo; separei ${plural(kc.hoje.length, 'contato', 'contatos')} para hoje logo abaixo.`);
+    dica = nAtr ? 'Sugestão: comece pelos retornos atrasados; cliente esperando é venda escapando.' : nHj ? 'Sugestão: faça os retornos de hoje ainda pela manhã.' : kc.atras.length ? 'Lembrete: nenhum cliente pode ficar sem contato. Registre cada ligação no app.' : '';
   }
   if (nAv) frases.push(`Deixei ${plural(nAv, 'aviso', 'avisos')} para você logo abaixo.`);
   if (!frases.length) frases.push('Tudo em dia por aqui. Bom trabalho!');
@@ -242,6 +300,7 @@ function telaPend() {
     <div class="kpis"><div class="kpi"><strong>${nHj}</strong><span>para hoje</span></div><div class="kpi${nAtr ? ' bad' : ''}"><strong>${nAtr}</strong><span>atrasadas</span></div><div class="kpi gold"><strong>${nP}</strong><span>em prospecção</span></div></div>`)) +
   `<div class="main">${fernandinho()}<div class="chips" role="group" aria-label="Filtrar">${[['todas', 'Todas'], ['C', 'Carteira'], ['P', 'Prospecção e novos']].map(([k, t]) => `<button class="chip" data-act="filtro" data-v="${k}" aria-pressed="${f === k}">${t}</button>`).join('')}</div>
   ${blocoAvisos()}
+  ${blocoCobranca()}
   ${(() => { const ea = itensAbertos(p => p.vendedor === S.eu).filter(x => x.s.atrasado); return ea.length ? `<div class="sec bad">Entregas atrasadas · ${ea.length}</div>` + ea.slice(0, 10).map(x => `<button class="card over" data-act="pedido" data-ref="${x.it.pedido}"><div class="row"><span class="name">${esc(nomeCli(x.p))}</span><span class="tag bad">Entrega ${dm(x.s.proxData)}</span></div><div class="txt">${esc(x.it.produto || '')} · saldo ${fmtQ(Math.max(x.s.saldo, 0))}</div><div class="sub">Pedido ${x.it.pedido} · O.F. ${esc(x.it.of)}</div></button>`).join('') : ''; })()}
   ${bloco('Atrasadas', atr, 'bad')}${bloco('Hoje', hj)}${bloco('Próximos 7 dias', prox)}
   ${vazio ? '<div class="empty"><b>Nada pendente por aqui</b><span>Ao registrar um contato com data de retorno, ele aparece nesta tela no dia marcado.</span></div>' : ''}
@@ -310,6 +369,7 @@ function telaNumeros() {
   return head(topo(cabecalhoMes(n.tot, n.pm.length, n.totAnt, 'Meus números'))) +
   `<div class="main"><div class="card"><div class="stats"><div class="stat"><span>Clientes na carteira</span><b>${cart.length}</b></div><div class="stat"><span>Compraram em 2026</span><b>${ativos}</b></div><div class="stat"><span>Nunca contatados</span><b>${nunca}</b></div></div>
    <div class="stats"><div class="stat"><span>Contatos em 7 dias</span><b>${n.cont7}</b></div><div class="stat"><span>Prospecções ativas</span><b>${n.prosp}</b></div><div class="stat"><span>Atrasadas</span><b>${n.atr}</b></div></div></div>
+   <button class="btn ghost" data-act="cobranca">📞 Agenda de contatos · ${cobranca(S.eu).atras.length} fora do prazo</button>
    <div class="sec">Pedidos do mês</div>
    ${n.pm.length ? n.pm.slice().sort((a, b) => b.numero - a.numero).map(p => `<div class="card"><div class="row"><span class="name">${esc(p.cliente)}</span><b class="num">${brl(p.valor)}</b></div><div class="sub">Pedido ${esc(p.numero)} · ${dm(p.data)}</div></div>`).join('') : '<div class="empty"><b>Nenhum pedido no mês ainda</b><span>Os pedidos entram a cada atualização do CRM.</span></div>'}</div>`;
 }
@@ -323,6 +383,7 @@ function telaEquipe() {
    <div class="card"><div class="h2">Vendedores no mês</div><div class="scroll"><table class="tbl"><thead><tr><th>Vendedor</th><th style="text-align:right">Vendas</th><th style="text-align:right">Ped.</th><th style="text-align:right">Contatos 7d</th><th style="text-align:right">Atras.</th></tr></thead><tbody>
    ${linhas.map(l => `<tr><td>${esc(titulo(l.v))}</td><td class="n">${brl(l.tot)}</td><td class="n">${l.pm.length}</td><td class="n">${l.cont7}</td><td class="n"${l.atr ? ' style="color:var(--bad);font-weight:600"' : ''}>${l.atr}</td></tr>`).join('')}
    </tbody></table></div></div>
+   ${blocoCobrancaEquipe()}
    ${conflitos.length ? `<div class="alert"><span class="lbl">PROSPECÇÃO EM CLIENTE DE OUTRO VENDEDOR · ${conflitos.length}</span>${conflitos.slice(0, 8).map(p => `<span class="txt">${esc(p.nome)} · ${esc(titulo(p.vendedor))}</span>`).join('')}</div>` : ''}
    <div class="sec">Pedidos e faturamento</div>
    <button class="btn ghost" data-act="irtab" data-v="entregas">${svg('truck', 18)} Entregas com saldo</button>
@@ -911,6 +972,7 @@ function render() {
     else if (v && v.t === 'pmaq') html = telaProgMaq(v.ref);
     else if (v && v.t === 'preal') html = telaProgReal();
     else if (v && v.t === 'fluxo') html = telaFluxo();
+    else if (v && v.t === 'cobranca') html = telaCobranca(v.vend);
     else html = ({ pend: telaPend, cart: telaCarteira, busca: telaBusca, ped: telaPedidos, num: gestor() ? telaEquipe : telaNumeros, entregas: telaEntregas, nfs: telaNFs, prog: veTudo() ? telaProg : telaPend })[S.tab]();
     const abas = suporte() ? [['entregas', 'truck', 'Entregas'], ['ped', 'box', 'Pedidos'], ['nfs', 'doc', 'Notas fiscais'], ['prog', 'cog', 'PCP']]
       : [['pend', 'cal', 'Pendências'], ['cart', 'users', 'Carteira'], ['busca', 'search', 'Buscar'], ['ped', 'box', 'Pedidos'], ['num', 'chart', gestor() ? 'Equipe' : 'Números']].concat(gestor() ? [['prog', 'cog', 'PCP']] : []);
@@ -957,6 +1019,8 @@ document.addEventListener('click', async e => {
   else if (a === 'cancexc') { S.confNF = null; S._keep = true; render(); }
   else if (['frac', 'baixar', 'desfazbaixa', 'ligar', 'excnf', 'var', 'importxml'].includes(a)) { await acaoPedidos(a, b); }
   else if (a === 'avisook') { await resolverAviso(b.dataset.ref); }
+  else if (a === 'cobranca') { S.fcob = 'atras'; S.qcob = ''; ir({ t: 'cobranca', vend: v || S.eu }); }
+  else if (a === 'fcob') { S.fcob = v; S._keep = true; render(); }
   else if (a === 'fernok') { try { localStorage.setItem('fern-' + hoje() + '-' + S.tab, '1'); } catch (e) { } S._keep = true; render(); }
   else if (a === 'ajuda') ir({ t: 'ajuda' });
   else if (a === 'filtro') { S.filtro = v; S._keep = true; render(); }
@@ -981,6 +1045,7 @@ document.addEventListener('input', e => {
   if (e.target.id === 'qped') { S.qped = e.target.value; S._keep = true; render(); }
   if (e.target.id === 'qnf') { S.qnf = e.target.value; S._keep = true; render(); }
   if (e.target.id === 'qprog') { S.qprog = e.target.value; S._keep = true; render(); }
+  if (e.target.id === 'qcob') { S.qcob = e.target.value; S._keep = true; render(); }
   if (e.target.id === 'qfx') { S.qfx = e.target.value; S._keep = true; render(); }
 });
 document.addEventListener('change', async e => {
@@ -1018,7 +1083,7 @@ document.addEventListener('submit', async e => {
         pedido: val('ped') || null, valor: parseFloat(val('valor').replace(/\./g, '').replace(',', '.')) || null, origem: 'app' };
       if (v.tipo === 'C') doc.cliente_codigo = String(v.ref); else { doc.prospeccao_id = v.ref; doc.vendedor = (S.prosp.find(x => x.id === v.ref) || {}).vendedor || S.eu; }
       const { data, error } = await sb.from('contatos').insert(doc).select().single(); if (error) throw error;
-      S.contatos.push(data);
+      S.contatos.push(data); COB = null;
       if (v.tipo === 'P') {
         const up = { etapa: doc.etapa, ult: doc.data, prox: doc.prox, hora: doc.hora, acao: doc.acao };
         const r2 = await sb.from('prospeccoes').update(up).eq('id', v.ref); if (r2.error) throw r2.error;
