@@ -146,10 +146,44 @@ function proximo(prox, hora, acao) {
 }
 
 /* ---------------- telas ---------------- */
+/* ---------- Fernandinho: a persona do CRM ---------- */
+const FERN_SVG = s => `<svg viewBox="0 0 48 48" width="${s}" height="${s}" aria-hidden="true"><circle cx="24" cy="24" r="24" fill="#0E4C5C"/><line x1="24" y1="8" x2="24" y2="13" stroke="#C8963E" stroke-width="2.5" stroke-linecap="round"/><circle cx="24" cy="7" r="3" fill="#E8C27A"/><rect x="8" y="20" width="4" height="9" rx="2" fill="#C8963E"/><rect x="36" y="20" width="4" height="9" rx="2" fill="#C8963E"/><rect x="11" y="13" width="26" height="23" rx="8" fill="#F2F6F7"/><circle cx="19" cy="23" r="3.3" fill="#0A3440"/><circle cx="29" cy="23" r="3.3" fill="#0A3440"/><circle cx="20.1" cy="21.9" r="1.1" fill="#fff"/><circle cx="30.1" cy="21.9" r="1.1" fill="#fff"/><path d="M18.5 29.5q5.5 4.2 11 0" stroke="#C8963E" stroke-width="2.4" fill="none" stroke-linecap="round"/></svg>`;
+(function () { const st = document.createElement('style'); st.textContent = '.fern{display:flex;gap:12px;align-items:flex-start;background:var(--card);border-radius:14px;padding:14px;border-left:4px solid var(--gold)}.fern .av{flex:none;line-height:0}.fern .bal{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}.fern .quem{font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--petrol);text-transform:uppercase}.fern .fala{font-size:15px;line-height:1.45}.fern .dica{font-size:13px;color:var(--muted)}.fern .x{background:none;border:0;color:var(--muted);font-size:20px;line-height:1;padding:0 2px;cursor:pointer;flex:none}'; document.head.appendChild(st); })();
+const plural = (n, s, p) => `<b>${n} ${n === 1 ? s : p}</b>`;
+function fernandinho() {
+  const chave = 'fern-' + hoje() + '-' + S.tab;
+  try { if (localStorage.getItem(chave)) return ''; } catch (e) { }
+  const hr = new Date().getHours(), saud = hr < 12 ? 'Bom dia' : hr < 18 ? 'Boa tarde' : 'Boa noite', h = hoje(), ontem = addDias(-1);
+  const frases = []; let dica = '';
+  const nAv = avisosAbertos().length;
+  if (S.tab === 'entregas' || S.papel === 'suporte') {
+    const l = itensAbertos(() => true), atr = l.filter(x => x.s.atrasado).length, bx = l.filter(x => !x.s.aberto && x.s.precisaBaixa).length;
+    let pr = 0, pc = 0; try { pr = prontasExpedir().length; pc = pedidosFluxo().filter(x => x.completo).length; } catch (e) { }
+    if (pr) frases.push(`A fábrica deixou ${plural(pr, 'O.F. pronta', 'O.F.s prontas')} para expedir${pc ? `, fechando ${plural(pc, 'pedido completo', 'pedidos completos')}` : ''}.`);
+    if (atr) frases.push(`Temos ${plural(atr, 'entrega atrasada', 'entregas atrasadas')}${bx ? ` e ${plural(bx, 'item', 'itens')} para confirmar baixa` : ''}.`);
+    else if (bx) frases.push(`Tem ${plural(bx, 'item', 'itens')} para confirmar baixa.`);
+    dica = pr ? 'Sugestão: comece pelas O.F.s prontas, para a caixa não ficar parada na fábrica.' : atr ? 'Sugestão: comece pelas atrasadas.' : '';
+  } else {
+    const all = pendencias(S.eu), nHj = all.filter(p => p.prox === h).length, nAtr = all.filter(p => p.prox < h).length;
+    const meusPed = (S.pedidos || []).filter(p => (gestor() || p.vendedor === S.eu) && p.data >= ontem).length;
+    const ea = itensAbertos(p => gestor() || p.vendedor === S.eu).filter(x => x.s.atrasado).length;
+    if (nHj || nAtr) frases.push(`Hoje você tem ${nHj ? plural(nHj, 'retorno', 'retornos') + ' marcado' + (nHj === 1 ? '' : 's') : 'nenhum retorno marcado'}${nAtr ? ` e ${plural(nAtr, 'retorno atrasado', 'retornos atrasados')}` : ''}.`);
+    if (meusPed) frases.push(`Entr${meusPed === 1 ? 'ou' : 'aram'} ${plural(meusPed, gestor() ? 'pedido novo' : 'pedido novo seu', gestor() ? 'pedidos novos' : 'pedidos novos seus')} desde ontem.`);
+    if (ea) frases.push(`${gestor() ? 'Na empresa, ' : 'Dos seus pedidos, '}${plural(ea, 'entrega está atrasada', 'entregas estão atrasadas')}.`);
+    dica = nAtr ? 'Sugestão: comece pelos retornos atrasados; cliente esperando é venda escapando.' : nHj ? 'Sugestão: faça os retornos de hoje ainda pela manhã.' : '';
+  }
+  if (nAv) frases.push(`Deixei ${plural(nAv, 'aviso', 'avisos')} para você logo abaixo.`);
+  if (!frases.length) frases.push('Tudo em dia por aqui. Bom trabalho!');
+  return `<div class="fern" role="status"><span class="av">${FERN_SVG(44)}</span><div class="bal"><span class="quem">Fernandinho · assistente do CRM</span>
+    <div class="fala">${saud}, ${esc(primeiro(S.eu))}! ${frases.join(' ')}</div>${dica ? `<div class="dica">${dica}</div>` : ''}</div>
+    <button class="x" data-act="fernok" aria-label="Fechar o recado do Fernandinho até amanhã" title="Fechar até amanhã">×</button></div>`;
+}
+
 function telaLogin() {
   const novo = S.tela === 'primeiro';
   return head(`<div class="brand"><b>FERMANI</b></div><h1>CRM Comercial</h1><div class="hi">${novo ? 'Primeiro acesso: crie a sua senha' : 'Entre com o seu e-mail da Fermani'}</div>`) +
   `<form class="main login" id="flogin">
+    <div class="fern"><span class="av">${FERN_SVG(44)}</span><div class="bal"><span class="quem">Fernandinho · assistente do CRM</span><div class="fala">Oi! Eu sou o Fernandinho. Cuido dos pedidos, das notas e das entregas, e te aviso do que precisa de atenção.</div></div></div>
     <div class="field"><label for="l_email">E-mail</label><input id="l_email" type="email" autocomplete="username" required value="${esc(S.form.email || '')}"></div>
     <div class="field"><label for="l_senha">${novo ? 'Crie uma senha (mínimo 8 caracteres)' : 'Senha'}</label><input id="l_senha" type="password" autocomplete="${novo ? 'new-password' : 'current-password'}" minlength="${novo ? 8 : 1}" required></div>
     ${S.msg ? `<p class="err" role="alert">${esc(S.msg)}</p>` : ''}
@@ -167,7 +201,7 @@ function avisosAbertos() { return (S.avisos || []).filter(a => a.status !== 'res
 function blocoAvisos() {
   const l = avisosAbertos(); if (!l.length) return '';
   const tag = t => ({ cliente: 'Cliente', pedido: 'Pedido', entrega: 'Entrega', cadastro: 'Cadastro' })[t] || 'Aviso';
-  return `<div class="sec gold">🤖 Avisos do Fernandinho · ${l.length}</div>` + l.slice(0, 30).map(a => `<div class="card aviso"><div class="row"><span class="name">${esc(a.titulo)}</span><span class="tag p">${tag(a.tipo)}</span></div>
+  return `<div class="sec gold" style="display:flex;align-items:center;gap:6px">${FERN_SVG(20)} Avisos do Fernandinho · ${l.length}</div>` + l.slice(0, 30).map(a => `<div class="card aviso"><div class="row"><span class="name">${esc(a.titulo)}</span><span class="tag p">${tag(a.tipo)}</span></div>
     ${a.texto ? `<div class="txt">${esc(a.texto)}</div>` : ''}<div class="sub">${esc([a.para && veTudo() ? 'Para ' + titulo(a.para) : '', a.criado ? 'Desde ' + dm(String(a.criado).slice(0, 10)) : ''].filter(Boolean).join(' · '))}</div>
     <div class="confirm">${a.pedido ? `<button class="btn ghost sm" data-act="pedido" data-ref="${a.pedido}">Ver pedido</button>` : ''}<button class="btn sm" data-act="avisook" data-ref="${esc(a.id)}">Resolvido</button></div></div>`).join('');
 }
@@ -206,7 +240,7 @@ function telaPend() {
   const vazio = !atr.length && !hj.length && !prox.length;
   return head(topo(`<div class="hi">${saud}, ${esc(primeiro(S.eu))}</div><h1>Pendências de hoje</h1>
     <div class="kpis"><div class="kpi"><strong>${nHj}</strong><span>para hoje</span></div><div class="kpi${nAtr ? ' bad' : ''}"><strong>${nAtr}</strong><span>atrasadas</span></div><div class="kpi gold"><strong>${nP}</strong><span>em prospecção</span></div></div>`)) +
-  `<div class="main"><div class="chips" role="group" aria-label="Filtrar">${[['todas', 'Todas'], ['C', 'Carteira'], ['P', 'Prospecção e novos']].map(([k, t]) => `<button class="chip" data-act="filtro" data-v="${k}" aria-pressed="${f === k}">${t}</button>`).join('')}</div>
+  `<div class="main">${fernandinho()}<div class="chips" role="group" aria-label="Filtrar">${[['todas', 'Todas'], ['C', 'Carteira'], ['P', 'Prospecção e novos']].map(([k, t]) => `<button class="chip" data-act="filtro" data-v="${k}" aria-pressed="${f === k}">${t}</button>`).join('')}</div>
   ${blocoAvisos()}
   ${(() => { const ea = itensAbertos(p => p.vendedor === S.eu).filter(x => x.s.atrasado); return ea.length ? `<div class="sec bad">Entregas atrasadas · ${ea.length}</div>` + ea.slice(0, 10).map(x => `<button class="card over" data-act="pedido" data-ref="${x.it.pedido}"><div class="row"><span class="name">${esc(nomeCli(x.p))}</span><span class="tag bad">Entrega ${dm(x.s.proxData)}</span></div><div class="txt">${esc(x.it.produto || '')} · saldo ${fmtQ(Math.max(x.s.saldo, 0))}</div><div class="sub">Pedido ${x.it.pedido} · O.F. ${esc(x.it.of)}</div></button>`).join('') : ''; })()}
   ${bloco('Atrasadas', atr, 'bad')}${bloco('Hoje', hj)}${bloco('Próximos 7 dias', prox)}
@@ -567,7 +601,7 @@ function telaEntregas() {
     <div class="sub">Pedido ${x.it.pedido} · O.F. ${esc(x.it.of)} · ${esc(primeiro(x.p.vendedor))}${x.it.fracionado ? ' · fracionada' : ''}</div></div></div></button>`;
   const bloco = (t, a, cls) => a.length ? `<div class="sec ${cls || ''}">${t} · ${a.length}</div>` + a.map(linha).join('') : '';
   return head(topo(`<div class="hi">Itens com saldo a entregar</div><h1>Entregas</h1><div class="kpis"><div class="kpi${atr.length ? ' bad' : ''}"><strong>${atr.length}</strong><span>atrasadas</span></div><div class="kpi"><strong>${prox7.length}</strong><span>próximos 7 dias</span></div><div class="kpi gold"><strong>${baixa.length}</strong><span>confirmar baixa</span></div></div>`)) +
-  `<div class="main">${(() => { const pr = prontasExpedir().length, pc = pedidosFluxo().filter(x => x.completo).length; return pr ? `<button class="alert ok" data-act="fluxo" style="text-align:left;font:inherit;color:inherit"><span class="lbl">✅ ${pr} ${pr === 1 ? 'O.F. PRONTA' : 'O.F.s PRONTAS'} PARA EXPEDIR${pc ? ' · ' + pc + (pc === 1 ? ' PEDIDO COMPLETO' : ' PEDIDOS COMPLETOS') : ''}</span><span class="txt">A fábrica fechou a última máquina. Toque para ver e dar baixa.</span></button>` : ''; })()}<button class="card" data-act="fluxo" style="border-left:4px solid var(--petrol)"><div class="row"><span class="name">🏭 Fluxo das O.F.s na fábrica</span><b class="num">abrir</b></div><div class="sub">Cada O.F. máquina por máquina, pedidos completos e o que está rodando agora.</div></button><a class="card" href="expedicao.html" style="display:block;text-decoration:none;color:inherit;border-left:4px solid var(--gold)"><div class="row"><span class="name">📦 Expedição · caixas prontas e sobras</span><b class="num">abrir</b></div><div class="sub">Entradas da expedição, saldo pronto × faturado e etiqueta A4 das sobras.</div></a><div class="field"><label for="fvend">Vendedor</label><select id="fvend"><option value="">Todos</option>${vends.map(v => `<option value="${esc(v)}"${v === fv ? ' selected' : ''}>${esc(titulo(v))}</option>`).join('')}</select></div>
+  `<div class="main">${fernandinho()}${(() => { const pr = prontasExpedir().length, pc = pedidosFluxo().filter(x => x.completo).length; return pr ? `<button class="alert ok" data-act="fluxo" style="text-align:left;font:inherit;color:inherit"><span class="lbl">✅ ${pr} ${pr === 1 ? 'O.F. PRONTA' : 'O.F.s PRONTAS'} PARA EXPEDIR${pc ? ' · ' + pc + (pc === 1 ? ' PEDIDO COMPLETO' : ' PEDIDOS COMPLETOS') : ''}</span><span class="txt">A fábrica fechou a última máquina. Toque para ver e dar baixa.</span></button>` : ''; })()}<button class="card" data-act="fluxo" style="border-left:4px solid var(--petrol)"><div class="row"><span class="name">🏭 Fluxo das O.F.s na fábrica</span><b class="num">abrir</b></div><div class="sub">Cada O.F. máquina por máquina, pedidos completos e o que está rodando agora.</div></button><a class="card" href="expedicao.html" style="display:block;text-decoration:none;color:inherit;border-left:4px solid var(--gold)"><div class="row"><span class="name">📦 Expedição · caixas prontas e sobras</span><b class="num">abrir</b></div><div class="sub">Entradas da expedição, saldo pronto × faturado e etiqueta A4 das sobras.</div></a><div class="field"><label for="fvend">Vendedor</label><select id="fvend"><option value="">Todos</option>${vends.map(v => `<option value="${esc(v)}"${v === fv ? ' selected' : ''}>${esc(titulo(v))}</option>`).join('')}</select></div>
    ${blocoAvisos()}
    ${bloco('Atrasadas', atr, 'bad')}${bloco('Confirmar baixa', baixa)}${bloco('Próximos 7 dias', prox7)}${bloco('Depois', depois)}
    ${!l.length ? '<div class="empty"><b>Nenhum item com saldo</b><span>Os itens entram com a importação do relatório de pedidos.</span></div>' : ''}
@@ -923,6 +957,7 @@ document.addEventListener('click', async e => {
   else if (a === 'cancexc') { S.confNF = null; S._keep = true; render(); }
   else if (['frac', 'baixar', 'desfazbaixa', 'ligar', 'excnf', 'var', 'importxml'].includes(a)) { await acaoPedidos(a, b); }
   else if (a === 'avisook') { await resolverAviso(b.dataset.ref); }
+  else if (a === 'fernok') { try { localStorage.setItem('fern-' + hoje() + '-' + S.tab, '1'); } catch (e) { } S._keep = true; render(); }
   else if (a === 'ajuda') ir({ t: 'ajuda' });
   else if (a === 'filtro') { S.filtro = v; S._keep = true; render(); }
   else if (a === 'ordem') { S.ordem = v; S._keep = true; render(); }
