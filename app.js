@@ -68,6 +68,7 @@ async function carregar() {
   S.itens = it; S.parcelas = pa; S.variacao = va; S.nfs = nf; S.nfItens = ni;
   try { S.avisos = await todos('avisos'); } catch (e) { S.avisos = []; }
   try { S.cob = await todos('cobertura'); } catch (e) { S.cob = []; }
+  try { S.trein = await todos('treinamentos'); S.treg = await todos('treinamento_registros'); const r = await sb.rpc('meu_depto'); S.depto = r.error ? null : r.data; } catch (e) { S.trein = []; S.treg = []; S.depto = null; }
   if (S.papel === 'gestor' || S.papel === 'suporte') S.vendedores = await todos('vendedores');
   if (S.papel === 'gestor' || S.papel === 'suporte') { try { S.prog = await todos('programacao'); } catch (e) { S.prog = []; } try { S.prel = await todos('pcp_relatorio'); } catch (e) { S.prel = []; } }
   if (S.papel === 'gestor') { try { S.real = await todos('programacao_real'); } catch (e) { S.real = []; } }
@@ -328,6 +329,131 @@ async function resolverAviso(id) {
   const a = (S.avisos || []).find(x => x.id === id); if (a) a.status = 'resolvido'; toast('Aviso resolvido. Obrigado!');
 }
 /* ---------- como funciona ---------- */
+/* ---------- cursos e treinamentos (decisão de 15/11/2026) ----------
+   Cada treinamento tem público por departamento (tabela treinamentos). Quem está no público vê "Temos novidades",
+   pode tocar em "Ver depois" uma única vez (vale 24 horas) e depois o app só abre com a assinatura.
+   A assinatura fica em treinamento_registros (registro interno de treinamento, evidência para o ESG). A Clara define o público de cada um. */
+const TR_TOLER_H = 24;
+(function () { const st = document.createElement('style'); st.textContent = '.trs{background:var(--card);border-radius:16px;padding:20px 18px;display:flex;flex-direction:column;gap:12px;border-top:5px solid var(--petrol);min-height:52vh}.trs.esc{background:#0E4C5C;color:#fff;border-top-color:#C8963E}.trs .eye{font-size:12px;font-weight:700;letter-spacing:.08em;color:#C8963E;text-transform:uppercase}.trs h2{margin:0;font-size:22px;line-height:1.25}.trs .tri{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:10px;background:var(--bg)}.trs.esc .tri{background:rgba(255,255,255,.08)}.trs .tri b{font-size:15px}.trs .tri span{font-size:15px;line-height:1.45}.trs .trn{font-size:14px;line-height:1.45;border-left:3px solid #C8963E;padding:6px 10px;color:var(--muted)}.trs.esc .trn{color:#DCE9EC}.trprog{display:flex;gap:4px;align-items:center}.trprog i{flex:1;height:5px;border-radius:3px;background:var(--line);font-style:normal;font-size:10px;line-height:5px;text-align:center}.trprog i.ok{background:var(--petrol)}.trprog i.at{background:#C8963E}.trnav{display:grid;grid-template-columns:1fr 1.6fr;gap:10px}.trcv{width:100%;height:170px;background:#fff;border:1.5px dashed var(--line);border-radius:12px;touch-action:none;display:block}'; document.head.appendChild(st); })();
+const trTx = s => esc(s).replace(/&lt;(\/?)b&gt;/g, '<$1b>');
+const trQuando = d => new Date(d).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' às');
+const trAtivos = () => (S.trein || []).filter(t => t.ativo !== false).sort((a, b) => (a.publicado || '') < (b.publicado || '') ? -1 : 1);
+const trReg = (t, nome, tipo) => (S.treg || []).find(r => r.treinamento_id === t.id && r.nome === nome && r.tipo === tipo);
+const trPublico = (t, depto) => !!depto && (t.departamentos || []).some(x => String(x).toLowerCase() === String(depto).toLowerCase());
+function trPendente() {
+  if (S.tela !== 'app' || !S.carregado) return null;
+  for (const t of trAtivos()) {
+    if (!trPublico(t, S.depto) || trReg(t, S.eu, 'assinado')) continue;
+    const ad = trReg(t, S.eu, 'adiado'), ate = ad ? new Date(new Date(ad.criado).getTime() + TR_TOLER_H * 3600e3) : null;
+    return { t, ad, ate, bloqueia: !ad || ate <= new Date() };
+  }
+  return null;
+}
+function telaTreinGate(p) {
+  const t = p.t, n = (t.slides || []).length, ate = new Date(Date.now() + TR_TOLER_H * 3600e3);
+  return head(topo(`<div class="hi">${esc(primeiro(S.eu))}, antes de continuar</div><h1>🎓 Temos novidades!</h1>`)) +
+  `<div class="main"><div class="fern"><span class="av">${FERN_SVG(44)}</span><div class="bal"><span class="quem">Fernandinho · treinamento</span><div class="fala">O app ganhou novidades. Veja a apresentação <b>${esc(t.titulo)}</b> (${n} telas, cerca de ${t.carga_min || 30} min) e assine no fim.</div><div class="dica">${p.ad ? 'O prazo do “Ver depois” terminou. O app volta a abrir assim que você assinar.' : 'Está no meio de um atendimento? Toque em “Ver depois”: vale uma única vez, por 24 horas.'}</div></div></div>
+   <button class="btn" data-act="trver" data-ref="${t.id}">Ver a apresentação agora</button>
+   ${p.ad ? '' : `<button class="btn ghost" data-act="tradiar" data-ref="${t.id}">Ver depois (uma vez só, até ${trQuando(ate)})</button>`}
+   <div class="sub">Este treinamento fica registrado em Cursos e treinamentos da Fermani.</div></div>`;
+}
+function blocoTrein() {
+  const p = trPendente(); if (!p || p.bloqueia) return '';
+  return `<button class="alert" data-act="trver" data-ref="${p.t.id}" style="text-align:left;font:inherit;color:inherit;border-left:4px solid var(--gold)"><span class="lbl">🎓 TEMOS NOVIDADES · VEJA A APRESENTAÇÃO</span><span class="txt">${esc(p.t.titulo)}. Assine até <b>${trQuando(p.ate)}</b>; depois disso o app só abre com a assinatura.</span></button>`;
+}
+function telaTrein(v) {
+  const t = (S.trein || []).find(x => x.id === v.id);
+  if (!t) return head(`${voltar()}<h1>Treinamento</h1>`) + '<div class="main"><div class="empty"><b>Treinamento não encontrado</b></div></div>';
+  const sl = t.slides || [], n = sl.length, i = Math.max(0, Math.min(v.i || 0, v.prev ? n - 1 : n));
+  const prog = `<div class="trprog" role="img" aria-label="Tela ${Math.min(i + 1, n)} de ${n}">${sl.map((_, k) => `<i class="${k < i ? 'ok' : k === i ? 'at' : ''}"></i>`).join('')}${v.prev ? '' : `<i class="${i === n ? 'at' : ''}"></i>`}</div>`;
+  const topoT = head(`${voltar()}<div class="hi">${v.prev ? 'Prévia · ' : ''}${i < n ? `Tela ${i + 1} de ${n}` : 'Assinatura'}</div><h1>${esc(t.titulo)}</h1>${prog}`);
+  if (i < n) {
+    const s = sl[i];
+    return topoT + `<div class="main"><div class="trs${s.escuro ? ' esc' : ''}">${s.eye ? `<div class="eye">${trTx(s.eye)}</div>` : ''}<h2>${trTx(s.tit || '')}</h2>${(s.itens || []).map(x => Array.isArray(x) ? `<div class="tri"><b>${trTx(x[0])}</b><span>${trTx(x[1])}</span></div>` : `<div class="tri"><span>${trTx(x)}</span></div>`).join('')}${s.nota ? `<div class="trn">${trTx(s.nota)}</div>` : ''}</div>
+     <div class="trnav"><button class="btn ghost" data-act="trir" data-v="${i - 1}"${i === 0 ? ' disabled' : ''}>‹ Anterior</button><button class="btn" data-act="trir" data-v="${i + 1}">${i === n - 1 ? (v.prev ? 'Fechar a prévia' : 'Ir para a assinatura ›') : 'Próximo ›'}</button></div></div>`;
+  }
+  return topoT + `<div class="main"><div class="card"><div class="name">✍️ Assinatura do treinamento</div>
+   <div class="txt">Declaro que vi a apresentação <b>${esc(t.titulo)}</b>${t.versao ? ' (versão ' + esc(t.versao) + ')' : ''} e entendi as novidades do app.</div>
+   <label class="txt" style="display:flex;gap:10px;align-items:center;font-weight:600"><input type="checkbox" id="tr_ok" style="width:22px;height:22px"${S.trOk ? ' checked' : ''}> Li e entendi as novidades</label>
+   <div class="field"><label for="tr_nome">Seu nome completo</label><input id="tr_nome" autocomplete="name" value="${esc(S.trNome || '')}" placeholder="Nome e sobrenome"></div>
+   <div class="field"><label for="tr_cv">Assine com o dedo</label><canvas id="tr_cv" class="trcv" aria-label="Área para assinar"></canvas></div>
+   <button class="btn ghost sm" type="button" data-act="trlimpa" style="align-self:flex-start">Limpar assinatura</button></div>
+   <button class="btn" id="tr_btn" data-act="trassina" data-ref="${t.id}" disabled>Assinar e concluir</button>
+   <button class="btn ghost" data-act="trir" data-v="${n - 1}">‹ Voltar à apresentação</button>
+   <div class="sub">Fica registrado: seu nome, data e hora, quanto tempo você ficou na apresentação e a assinatura. É o registro interno de treinamento da Fermani.</div></div>`;
+}
+function trChecar() {
+  const b = document.getElementById('tr_btn'); if (!b) return;
+  b.disabled = !(S.trOk && (S.trNome || '').trim().split(/\s+/).length >= 2 && (S.trTraco || 0) >= 12);
+}
+function trLigar() {
+  const cv = document.getElementById('tr_cv'); if (!cv) return;
+  const ok = document.getElementById('tr_ok'), nm = document.getElementById('tr_nome');
+  ok.addEventListener('change', () => { S.trOk = ok.checked; trChecar(); });
+  nm.addEventListener('input', () => { S.trNome = nm.value; trChecar(); });
+  const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  const g = cv.getContext('2d'); g.scale(dpr, dpr); g.lineWidth = 2.6; g.lineCap = 'round'; g.lineJoin = 'round'; g.strokeStyle = '#0A3440';
+  if (S.trImg) { const im = new Image(); im.onload = () => g.drawImage(im, 0, 0, r.width, r.height); im.src = S.trImg; }
+  let on = false, last = null;
+  const pt = e => { const b = cv.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; };
+  cv.addEventListener('pointerdown', e => { on = true; last = pt(e); try { cv.setPointerCapture(e.pointerId); } catch (x) {} e.preventDefault(); });
+  cv.addEventListener('pointermove', e => { if (!on) return; const p = pt(e); g.beginPath(); g.moveTo(last[0], last[1]); g.lineTo(p[0], p[1]); g.stroke(); last = p; S.trTraco = (S.trTraco || 0) + 1; });
+  const fim = () => { if (!on) return; on = false; S.trImg = cv.toDataURL('image/png'); trChecar(); };
+  cv.addEventListener('pointerup', fim); cv.addEventListener('pointercancel', fim); cv.addEventListener('pointerleave', fim);
+  trChecar();
+}
+async function trGravar(t, tipo, extra) {
+  const { data, error } = await sb.from('treinamento_registros').insert(Object.assign({ treinamento_id: t.id, nome: S.eu, departamento: S.depto, tipo, aparelho: (navigator.userAgent || '').slice(0, 200) }, extra || {})).select();
+  if (error) throw error;
+  S.treg = (S.treg || []).concat(data && data.length ? data : [Object.assign({ treinamento_id: t.id, nome: S.eu, tipo, criado: new Date().toISOString() }, extra || {})]);
+}
+async function acaoTrein(a, b) {
+  const t = (S.trein || []).find(x => x.id === (b.dataset.ref || (S.view && S.view.id)));
+  if (a === 'trver') { S.trT0 = Date.now(); S.trImg = null; S.trTraco = 0; S.trOk = false; S.trNome = ''; ir({ t: 'trein', id: b.dataset.ref, i: 0, prev: b.dataset.v === 'prev' }); return; }
+  if (!t) return;
+  if (a === 'trir') { const n = +b.dataset.v, tot = (t.slides || []).length; if (n < 0) return; if (S.view.prev && n >= tot) { voltarTela(); return; } S.view = Object.assign({}, S.view, { i: n }); window.scrollTo(0, 0); render(); }
+  else if (a === 'trlimpa') { S.trImg = null; S.trTraco = 0; S._keep = true; render(); }
+  else if (a === 'tradiar') {
+    try { await trGravar(t, 'adiado'); } catch (e) { toast('Não foi possível adiar: ' + e.message); return; }
+    ir(null); toast('Combinado. Você tem até ' + trQuando(Date.now() + TR_TOLER_H * 3600e3) + ' para ver e assinar.');
+  }
+  else if (a === 'trassina') {
+    const nome = (S.trNome || '').trim();
+    if (!S.trOk || nome.split(/\s+/).length < 2 || (S.trTraco || 0) < 12 || !S.trImg) { toast('Marque “Li e entendi”, escreva o nome completo e assine.'); return; }
+    b.disabled = true;
+    try { await trGravar(t, 'assinado', { nome_digitado: nome.slice(0, 120), assinatura: S.trImg, tempo_seg: Math.round((Date.now() - (S.trT0 || Date.now())) / 1000) }); }
+    catch (e) { b.disabled = false; toast('Não foi possível gravar a assinatura: ' + e.message); return; }
+    S.trImg = null; S.trTraco = 0; ir(null); toast('Treinamento assinado. Obrigado, ' + primeiro(S.eu) + '!');
+  }
+  else if (a === 'trcsv') {
+    const l = trLinhas(t), q = s => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
+    const csv = '﻿' + [['Treinamento', 'Versão', 'Departamento', 'Colaborador', 'Situação', 'Assinado em', 'Nome digitado', 'Tempo na apresentação (min)', 'Carga horária (min)']].concat(l.map(x => [t.titulo, t.versao, x.p.departamento, titulo(x.p.nome), x.st, x.as ? new Date(x.as.criado).toLocaleString('pt-BR') : '', x.as ? x.as.nome_digitado : '', x.as && x.as.tempo_seg != null ? (x.as.tempo_seg / 60).toFixed(1).replace('.', ',') : '', t.carga_min])).map(r => r.map(q).join(';')).join('\r\n');
+    const u = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })), el = document.createElement('a');
+    el.href = u; el.download = 'Treinamento_' + (t.codigo || 'fermani') + '_' + hoje() + '.csv'; document.body.appendChild(el); el.click(); el.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000);
+  }
+}
+function trLinhas(t) {
+  return (S.vendedores || []).filter(p => p.ativo !== false && trPublico(t, p.departamento)).map(p => {
+    const as = trReg(t, p.nome, 'assinado'), ad = trReg(t, p.nome, 'adiado'), ate = ad ? new Date(new Date(ad.criado).getTime() + TR_TOLER_H * 3600e3) : null, fer = feriasDe(p.nome);
+    const st = as ? 'Assinou' : ad && ate > new Date() ? 'Adiou' : ad ? 'Bloqueado até assinar' : fer ? 'Férias · assina na volta' : 'Ainda não abriu o app';
+    return { p, as, ad, ate, st, ord: as ? 3 : ad && ate > new Date() ? 1 : ad ? 0 : fer ? 2 : 0 };
+  }).sort((a, b) => a.ord - b.ord || (a.p.nome < b.p.nome ? -1 : 1));
+}
+function blocoTreinEquipe() {
+  const ts = trAtivos();
+  return `<div class="card"><div class="h2">🎓 Cursos e treinamentos</div><div class="sub">Quem está no público vê “Temos novidades” ao abrir o app. Pode adiar uma vez, por 24 horas; depois o app só abre com a assinatura. A lista baixada serve de evidência de treinamento para o ESG.</div>` +
+  (ts.length ? ts.map(t => {
+    const l = trLinhas(t), ok = l.filter(x => x.as).length, pct = l.length ? Math.round(ok / l.length * 100) : 0;
+    return `<div style="border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:6px"><div class="row"><span class="name">${esc(t.titulo)}</span><b class="num">${ok} de ${l.length}</b></div>
+     <div class="sub">${esc((t.departamentos || []).join(', '))} · ${t.carga_min || 0} min · publicado em ${dm(t.publicado || '')}${t.esg ? ' · conta para o ESG' : ''}</div>
+     <div class="bar" role="img" aria-label="${pct}% assinaram" style="height:8px"><i style="width:${pct}%;background:var(--ok)"></i></div>
+     <div class="scroll"><table class="tbl"><thead><tr><th>Pessoa</th><th>Situação</th><th style="text-align:right">Tempo</th></tr></thead><tbody>
+     ${l.map(x => `<tr><td>${esc(titulo(x.p.nome))}</td><td${x.as ? ' style="color:var(--ok);font-weight:600"' : x.st === 'Bloqueado até assinar' || x.st === 'Ainda não abriu o app' ? ' style="color:var(--bad)"' : ''}>${x.as ? 'Assinou em ' + trQuando(x.as.criado) : x.st === 'Adiou' ? 'Adiou · até ' + trQuando(x.ate) : x.st}${x.as && x.as.assinatura ? `<br><img src="${esc(x.as.assinatura)}" alt="Assinatura de ${esc(titulo(x.p.nome))}" style="height:34px;background:#fff;border-radius:4px;margin-top:2px">` : ''}</td><td class="n">${x.as && x.as.tempo_seg != null ? Math.max(1, Math.round(x.as.tempo_seg / 60)) + ' min' : ''}</td></tr>`).join('') || '<tr><td colspan="3" class="sub">Ninguém no público ainda. Confira o departamento das pessoas.</td></tr>'}
+     </tbody></table></div>
+     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost sm" data-act="trver" data-v="prev" data-ref="${t.id}">Ver a apresentação</button><button class="btn ghost sm" data-act="trcsv" data-ref="${t.id}">Baixar a lista (planilha)</button></div></div>`;
+  }).join('') : '<div class="sub">Nenhum treinamento cadastrado ainda.</div>') + '</div>';
+}
 function telaAjuda() {
   const bl = (t, l) => `<div class="card"><div class="name" style="margin-bottom:6px">${t}</div>${l.map(x => `<div class="txt">• ${x}</div>`).join('')}</div>`;
   return head(`${voltar()}<div class="hi">Guia rápido do piloto</div><h1>Como funciona o app</h1>`) + `<div class="main">
@@ -336,6 +462,7 @@ function telaAjuda() {
   ${bl('📦 Situação das O.F.s', ['<b>Em aberto</b>: nada faturado.', '<b>Parcial</b>: parte faturada.', '<b>Atendido · confirmar baixa</b>: dentro da tolerância de ±10%; a Carla confirma.', '<b>Concluído / Baixado</b>: entregue.', '<b>Atrasado</b>: passou da data com saldo.'])}
   ${bl('📞 Agenda de contatos', ['<b>Nenhum cliente pode ficar sem contato.</b> Todo cliente da carteira precisa de um contato registrado no app dentro do prazo.', 'Prazo: <b>30 dias</b> para Faixa A ou cliente que comprou/abriu em 2026 · <b>60 dias</b> para Faixa B · <b>180 dias</b> para os demais.', 'Retorno marcado para o futuro conta como contato em dia. “Sem interesse” volta para a agenda em 180 dias.', 'Em <b>Pendências</b>, o Fernandinho separa os <b>contatos de hoje</b>: a cota do dia para pôr a carteira em dia, começando pela Faixa A e por quem compra mais.', 'A agenda completa também abre em <b>Números</b> → Agenda de contatos. O Cristiano acompanha a equipe na aba Equipe.'])}
   ${bl('🌡️ Termômetro', ['Nota de 0 a 100 de como estão os seus trabalhos: <b>80+</b> verde, <b>50–79</b> atenção, <b>abaixo de 50</b> precisa reagir.', 'Pesos: contatos de ontem × meta 30 · carteira em dia 25 · vendas no ritmo do mês anterior 20 · retornos sem atraso 15 · prospecção ativa (5 ou mais) 10.', 'Aparece em Pendências e em Números. O Cristiano vê o de todos na aba Equipe.'])}
+  ${bl('🎓 Treinamentos', ['Quando o app ganha novidades, aparece “Temos novidades” com uma apresentação curta. Veja até o fim e assine com o dedo.', '“Ver depois” vale uma vez só, por 24 horas. Depois disso, o app só abre com a assinatura.', 'Cada treinamento é para um ou mais departamentos. A assinatura fica registrada em Cursos e treinamentos da Fermani (conta para o ESG).'])}
   ${bl('🤖 Fernandinho', ['É o assistente do CRM: dá o recado do dia no topo da tela inicial (toque no × para fechar até amanhã).', 'Nos dias úteis, de hora em hora, lê as notas fiscais e liga cada uma à O.F. (cliente + FT + data).', 'Kits: vale a O.F. mãe (C/ Acessório); as filhas seguem a mãe.', 'Avisos aparecem no topo. Confira, corrija e só depois toque em <b>Resolvido</b>.'])}
   ${bl('📌 Observações do piloto', ['<b>A partir de 16/11/2026, contatos e prospecções são lançados só no app.</b> A planilha não é mais usada para contatos.', 'Registre cada ligação, visita ou WhatsApp com o cliente: é isso que conta na agenda de contatos.', 'Não lance em dois lugares.', 'Senha é pessoal; não passe para colegas.', 'Em computador de uso comum, toque em <b>Sair</b> no fim do dia.', 'Não mande print de carteira para fora da Fermani.', 'Viu algo errado? Mande um print ao Cristiano.'])}
   </div>`;
@@ -359,7 +486,7 @@ function telaPend() {
   const vazio = !atr.length && !hj.length && !prox.length;
   return head(topo(`<div class="hi">${saud}, ${esc(primeiro(S.eu))}</div><h1>Pendências de hoje</h1>
     <div class="kpis"><div class="kpi"><strong>${nHj}</strong><span>para hoje</span></div><div class="kpi${nAtr ? ' bad' : ''}"><strong>${nAtr}</strong><span>atrasadas</span></div><div class="kpi gold"><strong>${nP}</strong><span>em prospecção</span></div></div>`)) +
-  `<div class="main">${fernandinho()}${!gestor() ? cardTermometro(S.eu) : ''}<div class="chips" role="group" aria-label="Filtrar">${[['todas', 'Todas'], ['C', 'Carteira'], ['P', 'Prospecção e novos']].map(([k, t]) => `<button class="chip" data-act="filtro" data-v="${k}" aria-pressed="${f === k}">${t}</button>`).join('')}</div>
+  `<div class="main">${blocoTrein()}${fernandinho()}${!gestor() ? cardTermometro(S.eu) : ''}<div class="chips" role="group" aria-label="Filtrar">${[['todas', 'Todas'], ['C', 'Carteira'], ['P', 'Prospecção e novos']].map(([k, t]) => `<button class="chip" data-act="filtro" data-v="${k}" aria-pressed="${f === k}">${t}</button>`).join('')}</div>
   ${blocoAvisos()}
   ${blocoCobranca()}
   ${(() => { const ea = itensAbertos(p => p.vendedor === S.eu).filter(x => x.s.atrasado); return ea.length ? `<div class="sec bad">Entregas atrasadas · ${ea.length}</div>` + ea.slice(0, 10).map(x => `<button class="card over" data-act="pedido" data-ref="${x.it.pedido}"><div class="row"><span class="name">${esc(nomeCli(x.p))}</span><span class="tag bad">Entrega ${dm(x.s.proxData)}</span></div><div class="txt">${esc(x.it.produto || '')} · saldo ${fmtQ(Math.max(x.s.saldo, 0))}</div><div class="sub">Pedido ${x.it.pedido} · O.F. ${esc(x.it.of)}</div></button>`).join('') : ''; })()}
@@ -446,6 +573,7 @@ function telaEquipe() {
    ${linhas.map(l => `<tr><td>${esc(titulo(l.v))}</td><td class="n">${brl(l.tot)}</td><td class="n">${l.pm.length}</td><td class="n">${l.cont7}</td><td class="n"${l.atr ? ' style="color:var(--bad);font-weight:600"' : ''}>${l.atr}</td></tr>`).join('')}
    </tbody></table></div></div>
    ${blocoCobrancaEquipe()}
+   ${blocoTreinEquipe()}
    ${conflitos.length ? `<div class="alert"><span class="lbl">PROSPECÇÃO EM CLIENTE DE OUTRO VENDEDOR · ${conflitos.length}</span>${conflitos.slice(0, 8).map(p => `<span class="txt">${esc(p.nome)} · ${esc(titulo(p.vendedor))}</span>`).join('')}</div>` : ''}
    <div class="sec">Pedidos e faturamento</div>
    <button class="btn ghost" data-act="irtab" data-v="entregas">${svg('truck', 18)} Entregas com saldo</button>
@@ -725,7 +853,7 @@ function telaEntregas() {
     <div class="sub">Pedido ${x.it.pedido} · O.F. ${esc(x.it.of)} · ${esc(primeiro(x.p.vendedor))}${x.it.fracionado ? ' · fracionada' : ''}</div></div></div></button>`;
   const bloco = (t, a, cls) => a.length ? `<div class="sec ${cls || ''}">${t} · ${a.length}</div>` + a.map(linha).join('') : '';
   return head(topo(`<div class="hi">Itens com saldo a entregar</div><h1>Entregas</h1><div class="kpis"><div class="kpi${atr.length ? ' bad' : ''}"><strong>${atr.length}</strong><span>atrasadas</span></div><div class="kpi"><strong>${prox7.length}</strong><span>próximos 7 dias</span></div><div class="kpi gold"><strong>${baixa.length}</strong><span>confirmar baixa</span></div></div>`)) +
-  `<div class="main">${fernandinho()}${(() => { const pr = prontasExpedir().length, pc = pedidosFluxo().filter(x => x.completo).length; return pr ? `<button class="alert ok" data-act="fluxo" style="text-align:left;font:inherit;color:inherit"><span class="lbl">✅ ${pr} ${pr === 1 ? 'O.F. PRONTA' : 'O.F.s PRONTAS'} PARA EXPEDIR${pc ? ' · ' + pc + (pc === 1 ? ' PEDIDO COMPLETO' : ' PEDIDOS COMPLETOS') : ''}</span><span class="txt">A fábrica fechou a última máquina. Toque para ver e dar baixa.</span></button>` : ''; })()}<button class="card" data-act="fluxo" style="border-left:4px solid var(--petrol)"><div class="row"><span class="name">🏭 Fluxo das O.F.s na fábrica</span><b class="num">abrir</b></div><div class="sub">Cada O.F. máquina por máquina, pedidos completos e o que está rodando agora.</div></button><a class="card" href="expedicao.html" style="display:block;text-decoration:none;color:inherit;border-left:4px solid var(--gold)"><div class="row"><span class="name">📦 Expedição · caixas prontas e sobras</span><b class="num">abrir</b></div><div class="sub">Entradas da expedição, saldo pronto × faturado e etiqueta A4 das sobras.</div></a><div class="field"><label for="fvend">Vendedor</label><select id="fvend"><option value="">Todos</option>${vends.map(v => `<option value="${esc(v)}"${v === fv ? ' selected' : ''}>${esc(titulo(v))}</option>`).join('')}</select></div>
+  `<div class="main">${blocoTrein()}${fernandinho()}${(() => { const pr = prontasExpedir().length, pc = pedidosFluxo().filter(x => x.completo).length; return pr ? `<button class="alert ok" data-act="fluxo" style="text-align:left;font:inherit;color:inherit"><span class="lbl">✅ ${pr} ${pr === 1 ? 'O.F. PRONTA' : 'O.F.s PRONTAS'} PARA EXPEDIR${pc ? ' · ' + pc + (pc === 1 ? ' PEDIDO COMPLETO' : ' PEDIDOS COMPLETOS') : ''}</span><span class="txt">A fábrica fechou a última máquina. Toque para ver e dar baixa.</span></button>` : ''; })()}<button class="card" data-act="fluxo" style="border-left:4px solid var(--petrol)"><div class="row"><span class="name">🏭 Fluxo das O.F.s na fábrica</span><b class="num">abrir</b></div><div class="sub">Cada O.F. máquina por máquina, pedidos completos e o que está rodando agora.</div></button><a class="card" href="expedicao.html" style="display:block;text-decoration:none;color:inherit;border-left:4px solid var(--gold)"><div class="row"><span class="name">📦 Expedição · caixas prontas e sobras</span><b class="num">abrir</b></div><div class="sub">Entradas da expedição, saldo pronto × faturado e etiqueta A4 das sobras.</div></a><div class="field"><label for="fvend">Vendedor</label><select id="fvend"><option value="">Todos</option>${vends.map(v => `<option value="${esc(v)}"${v === fv ? ' selected' : ''}>${esc(titulo(v))}</option>`).join('')}</select></div>
    ${blocoAvisos()}
    ${bloco('Atrasadas', atr, 'bad')}${bloco('Confirmar baixa', baixa)}${bloco('Próximos 7 dias', prox7)}${bloco('Depois', depois)}
    ${!l.length ? '<div class="empty"><b>Nenhum item com saldo</b><span>Os itens entram com a importação do relatório de pedidos.</span></div>' : ''}
@@ -1033,12 +1161,15 @@ function blocoClientePedidos(c) {
 /* ---------------- render ---------------- */
 function render() {
   const y = window.scrollY, v = S.view;
-  let html;
+  let html, trG = false;
   if (S.tela === 'login' || S.tela === 'primeiro') { html = telaLogin(); $nav.innerHTML = ''; }
   else if (S.tela === 'semacesso') { html = telaSemAcesso(); $nav.innerHTML = ''; }
   else if (!S.carregado) { html = head(topo('<h1>Carregando sua carteira…</h1>')) + '<div class="main"><div class="empty"><b>Um instante</b></div></div>'; }
   else {
-    if (v && v.t === 'ficha') html = telaFicha(v.tipo, v.ref);
+    const trp = trPendente(); trG = !!(trp && trp.bloqueia && !(v && v.t === 'trein'));
+    if (trG) html = telaTreinGate(trp);
+    else if (v && v.t === 'trein') html = telaTrein(v);
+    else if (v && v.t === 'ficha') html = telaFicha(v.tipo, v.ref);
     else if (v && v.t === 'contato') html = telaContato(v.tipo, v.ref);
     else if (v && v.t === 'corrigir') html = telaCorrigir(v.ref);
     else if (v && v.t === 'nova') html = telaNovaProsp();
@@ -1060,12 +1191,13 @@ function render() {
     const abas = suporte() ? [['entregas', 'truck', 'Entregas'], ['ped', 'box', 'Pedidos'], ['nfs', 'doc', 'Notas fiscais'], ['prog', 'cog', 'PCP']]
       : [['pend', 'cal', 'Pendências'], ['cart', 'users', 'Carteira'], ['busca', 'search', 'Buscar'], ['ped', 'box', 'Pedidos'], ['num', 'chart', gestor() ? 'Equipe' : 'Números']].concat(gestor() ? [['prog', 'cog', 'PCP']] : []);
     $nav.style.gridTemplateColumns = `repeat(${abas.length},minmax(0,1fr))`;
-    $nav.innerHTML = abas.map(([k, i, t]) => `<button data-act="tab" data-v="${k}"${!v && S.tab === k ? ' aria-current="page"' : ''}>${svg(i)}${t}</button>`).join('');
+    $nav.innerHTML = trG || (v && v.t === 'trein') ? '' : abas.map(([k, i, t]) => `<button data-act="tab" data-v="${k}"${!v && S.tab === k ? ' aria-current="page"' : ''}>${svg(i)}${t}</button>`).join('');
   }
   const ae = document.activeElement, foco = ae && ae.id, sel = foco && ae.selectionStart;
-  $app.innerHTML = html + (S.carregado && !v && S.tab === 'pend' && S.tela === 'app' ? `<button class="fab" data-act="novaprosp" aria-label="Nova prospecção">${svg('plus', 24)}</button>` : '') + (S.toast ? `<div class="toast" role="status">${esc(S.toast)}</div>` : '');
+  $app.innerHTML = html + (S.carregado && !v && !trG && S.tab === 'pend' && S.tela === 'app' ? `<button class="fab" data-act="novaprosp" aria-label="Nova prospecção">${svg('plus', 24)}</button>` : '') + (S.toast ? `<div class="toast" role="status">${esc(S.toast)}</div>` : '');
   if (foco) { const el = document.getElementById(foco); if (el) { el.focus(); try { if (sel != null) el.setSelectionRange(sel, sel); } catch (e) {} } }
   if (S._keep) window.scrollTo(0, y); S._keep = false;
+  if (v && v.t === 'trein') trLigar();
 }
 function ir(view, troca) { if (view && S.view && !troca) S.hist.push(S.view); if (!view) S.hist = []; S.view = view; S.form = {}; S.chk = null; S.confBaixa = null; S.confNF = null; window.scrollTo(0, 0); render(); }
 function voltarTela() { S.view = S.hist.pop() || null; S.form = {}; S.chk = null; S.confBaixa = null; S.confNF = null; window.scrollTo(0, 0); render(); }
@@ -1106,6 +1238,7 @@ document.addEventListener('click', async e => {
   else if (a === 'cobranca') { S.fcob = 'atras'; S.qcob = ''; ir({ t: 'cobranca', vend: v || S.eu }); }
   else if (a === 'fcob') { S.fcob = v; S._keep = true; render(); }
   else if (a === 'termo') ir({ t: 'termo', vend: v || S.eu });
+  else if (['trver', 'trir', 'trlimpa', 'tradiar', 'trassina', 'trcsv'].includes(a)) await acaoTrein(a, b);
   else if (a === 'cobnova') { const t = val('cob_t'), su = val('cob_s'); if (!t || !su || t === su) { toast('Escolha quem está de férias e quem cobre.'); return; }
     const { data, error } = await sb.from('cobertura').insert({ titular: t, substituto: su, ate: val('cob_ate') || null }).select().single(); if (error) { toast('Não foi possível salvar: ' + error.message); return; }
     (S.cob = S.cob || []).push(data); COB = null; S._keep = true; render(); toast('Cobertura salva. Peça para ' + titulo(su) + ' sair e entrar no app para ver a carteira.'); }
