@@ -205,7 +205,7 @@ function telaCobranca(vend) {
   const l = base.filter(x => !q || norm(x.c.nome).includes(q) || norm(x.c.cidade || '').includes(q));
   const pct = k.l.length ? Math.round(k.emdia / k.l.length * 100) : 100;
   return head(`${voltar()}<div class="hi">${vend === S.eu ? 'Sua carteira' : esc(titulo(vend))} · ${k.l.length} clientes</div><h1>Agenda de contatos</h1><div class="kpis"><div class="kpi gold"><strong>${pct}%</strong><span>em dia</span></div><div class="kpi${k.venc ? ' bad' : ''}"><strong>${k.venc}</strong><span>fora do prazo</span></div><div class="kpi${k.nunca ? ' bad' : ''}"><strong>${k.nunca}</strong><span>nunca contatados</span></div></div><div class="search"><input id="qcob" type="search" placeholder="Cliente ou cidade" value="${esc(S.qcob || '')}" aria-label="Buscar na agenda"></div>`) +
-  `<div class="main">${k.ferias ? `<div class="alert"><span class="lbl">EM FÉRIAS</span><span class="txt">A carteira está com ${esc(titulo(k.ferias.substituto))}${k.ferias.ate ? ' até ' + dm(k.ferias.ate) : ''}. Os contatos dela aparecem aqui quando a cobertura terminar.</span></div>` : ''}${cobreDe(vend).length ? `<div class="alert"><span class="lbl">COBRINDO FÉRIAS</span><span class="txt">Inclui a carteira de ${cobreDe(vend).map(t => esc(titulo(t))).join(', ')}. Prioridade: Faixa A, clientes ativos e quem compra mais.</span></div>` : ''}<div class="fern"><span class="av">${FERN_SVG(44)}</span><div class="bal"><span class="quem">Fernandinho · agenda de contatos</span><div class="fala">${k.atras.length ? `Para colocar a carteira em dia, a meta é <b>${k.cota} contato${k.cota === 1 ? '' : 's'} por dia útil</b>. Comece pelos de cima: Faixa A e quem compra mais.` : 'Carteira em dia. Continue registrando cada contato no app.'}</div><div class="dica">Prazo de contato: Faixa A ou cliente ativo em 2026, a cada 30 dias · Faixa B, 60 dias · demais, 180 dias. Só vale contato registrado no app.</div></div></div>
+  `<div class="main">${vend !== S.eu ? cardTermometro(vend, true) : ''}${k.ferias ? `<div class="alert"><span class="lbl">EM FÉRIAS</span><span class="txt">A carteira está com ${esc(titulo(k.ferias.substituto))}${k.ferias.ate ? ' até ' + dm(k.ferias.ate) : ''}. Os contatos dela aparecem aqui quando a cobertura terminar.</span></div>` : ''}${cobreDe(vend).length ? `<div class="alert"><span class="lbl">COBRINDO FÉRIAS</span><span class="txt">Inclui a carteira de ${cobreDe(vend).map(t => esc(titulo(t))).join(', ')}. Prioridade: Faixa A, clientes ativos e quem compra mais.</span></div>` : ''}<div class="fern"><span class="av">${FERN_SVG(44)}</span><div class="bal"><span class="quem">Fernandinho · agenda de contatos</span><div class="fala">${k.atras.length ? `Para colocar a carteira em dia, a meta é <b>${k.cota} contato${k.cota === 1 ? '' : 's'} por dia útil</b>. Comece pelos de cima: Faixa A e quem compra mais.` : 'Carteira em dia. Continue registrando cada contato no app.'}</div><div class="dica">Prazo de contato: Faixa A ou cliente ativo em 2026, a cada 30 dias · Faixa B, 60 dias · demais, 180 dias. Só vale contato registrado no app.</div></div></div>
   <div class="chips" role="group" aria-label="Filtrar">${[['atras', `Fora do prazo · ${k.atras.length}`], ['semana', `Vencem em 7 dias · ${k.semana.length}`], ['nunca', `Nunca contatados · ${k.nunca}`], ['emdia', 'Em dia']].map(([c, t]) => `<button class="chip" data-act="fcob" data-v="${c}" aria-pressed="${f === c}">${t}</button>`).join('')}</div>
   ${l.slice(0, 150).map(x => cardCob(x, vend)).join('') || '<div class="empty"><b>Nada nesta lista</b></div>'}
   ${l.length > 150 ? `<p class="note">Mostrando 150 de ${l.length}. Use a busca para achar os outros.</p>` : ''}</div>`;
@@ -213,9 +213,9 @@ function telaCobranca(vend) {
 function blocoCobrancaEquipe() {
   const nomes = [...new Set(S.clientes.map(c => c.resp).filter(Boolean))].sort();
   const ont = diaUtilAnterior();
-  const linhas = nomes.map(v => { const k = cobranca(v); return { v, fer: k.ferias, n: k.l.length, pct: k.l.length ? Math.round(k.emdia / k.l.length * 100) : 100, venc: k.venc, nunca: k.nunca, cota: k.cota, ont: contatosNoDia(v, ont) }; }).filter(x => x.n || x.fer).sort((a, b) => (!!a.fer - !!b.fer) || (a.pct - b.pct));
-  return `<div class="card"><div class="h2" style="display:flex;align-items:center;gap:6px">${FERN_SVG(22)} Agenda de contatos da equipe</div><div class="sub">Toque no vendedor para ver a agenda dele. Meta = contatos por dia útil para pôr a carteira em dia. Ontem = contatos registrados no último dia útil (em vermelho, abaixo da meta).</div><div class="scroll"><table class="tbl"><thead><tr><th>Vendedor</th><th style="text-align:right">Carteira</th><th style="text-align:right">Em dia</th><th style="text-align:right">Fora</th><th style="text-align:right">Nunca</th><th style="text-align:right">Meta</th><th style="text-align:right">Ontem</th></tr></thead><tbody>
-   ${linhas.map(l => l.fer ? `<tr><td>${esc(titulo(l.v))}</td><td colspan="6" class="sub">Férias · carteira com ${esc(titulo(l.fer.substituto))}${l.fer.ate ? ' até ' + dm(l.fer.ate) : ''}</td></tr>` : `<tr data-act="cobranca" data-v="${esc(l.v)}" style="cursor:pointer"><td><u>${esc(titulo(l.v))}</u></td><td class="n">${l.n}</td><td class="n"${l.pct < 50 ? ' style="color:var(--bad);font-weight:600"' : ''}>${l.pct}%</td><td class="n">${l.venc}</td><td class="n">${l.nunca}</td><td class="n">${l.cota}</td><td class="n"${l.cota && l.ont < l.cota ? ' style="color:var(--bad);font-weight:600"' : ''}>${l.ont}</td></tr>`).join('')}
+  const linhas = nomes.map(v => { const k = cobranca(v), tm = termometro(v); return { v, tm, fer: k.ferias, n: k.l.length, pct: k.l.length ? Math.round(k.emdia / k.l.length * 100) : 100, venc: k.venc, nunca: k.nunca, cota: k.cota, ont: contatosNoDia(v, ont) }; }).filter(x => x.n || x.fer).sort((a, b) => (!!a.fer - !!b.fer) || ((a.tm ? a.tm.nota : 0) - (b.tm ? b.tm.nota : 0)));
+  return `<div class="card"><div class="h2" style="display:flex;align-items:center;gap:6px">${FERN_SVG(22)} Agenda de contatos da equipe</div><div class="sub">Toque no vendedor para ver a agenda dele. Meta = contatos por dia útil para pôr a carteira em dia. Ontem = contatos registrados no último dia útil (em vermelho, abaixo da meta). 🌡️ = termômetro de 0 a 100 (verde 80+, amarelo 50–79, vermelho abaixo de 50).</div><div class="scroll"><table class="tbl"><thead><tr><th>Vendedor</th><th style="text-align:right">🌡️</th><th style="text-align:right">Carteira</th><th style="text-align:right">Em dia</th><th style="text-align:right">Fora</th><th style="text-align:right">Nunca</th><th style="text-align:right">Meta</th><th style="text-align:right">Ontem</th></tr></thead><tbody>
+   ${linhas.map(l => l.fer ? `<tr><td>${esc(titulo(l.v))}</td><td colspan="7" class="sub">Férias · carteira com ${esc(titulo(l.fer.substituto))}${l.fer.ate ? ' até ' + dm(l.fer.ate) : ''}</td></tr>` : `<tr data-act="cobranca" data-v="${esc(l.v)}" style="cursor:pointer"><td><u>${esc(titulo(l.v))}</u></td><td class="n" style="color:${l.tm.cor};font-weight:700">${l.tm.nota}</td><td class="n">${l.n}</td><td class="n"${l.pct < 50 ? ' style="color:var(--bad);font-weight:600"' : ''}>${l.pct}%</td><td class="n">${l.venc}</td><td class="n">${l.nunca}</td><td class="n">${l.cota}</td><td class="n"${l.cota && l.ont < l.cota ? ' style="color:var(--bad);font-weight:600"' : ''}>${l.ont}</td></tr>`).join('')}
    </tbody></table></div>${blocoFerias()}</div>`;
 }
 function blocoFerias() {
@@ -226,6 +226,38 @@ function blocoFerias() {
    <div class="grid2" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:6px"><div class="field"><label for="cob_t">De férias</label><select id="cob_t">${opt('')}</select></div><div class="field"><label for="cob_s">Quem cobre</label><select id="cob_s">${opt('')}</select></div></div>
    <div class="field"><label for="cob_ate">Volta em (opcional)</label><input id="cob_ate" type="date"></div>
    <button class="btn sm" data-act="cobnova" style="align-self:flex-start">Salvar cobertura</button>`;
+}
+
+/* ---------- termômetro do vendedor (0 a 100) ----------
+   Pesos (decisão de 15/11/2026): contatos de ontem × meta 30 · carteira em dia 25 · vendas do mês no ritmo do mês anterior 20 · retornos sem atraso 15 · prospecção ativa 10. */
+function termometro(vend) {
+  const k = cobranca(vend); if (k.ferias) return null;
+  const n = numerosDe(vend), hj = new Date(), fimMes = new Date(hj.getFullYear(), hj.getMonth() + 1, 0).getDate(), pctMes = hj.getDate() / fimMes;
+  const ont = contatosNoDia(vend, diaUtilAnterior());
+  const itens = [
+    { k: 'cont', t: 'Contatos de ontem × meta', p: 30, v: k.cota ? Math.min(1, ont / k.cota) : 1, txt: k.cota ? `${ont} de ${k.cota}` : 'sem meta' },
+    { k: 'cart', t: 'Carteira em dia', p: 25, v: k.l.length ? k.emdia / k.l.length : 1, txt: k.l.length ? Math.round(k.emdia / k.l.length * 100) + '%' : '–' },
+    { k: 'vend', t: 'Vendas no ritmo do mês anterior', p: 20, v: n.totAnt > 0 ? Math.min(1, n.tot / (n.totAnt * pctMes)) : (n.tot > 0 ? 1 : 0.5), txt: n.totAnt > 0 ? Math.round(n.tot / (n.totAnt * pctMes) * 100) + '% do ritmo' : brl(n.tot) },
+    { k: 'ret', t: 'Retornos sem atraso', p: 15, v: Math.max(0, 1 - n.atr / 10), txt: n.atr ? `${n.atr} atrasado${n.atr === 1 ? '' : 's'}` : 'em dia' },
+    { k: 'pro', t: 'Prospecção ativa', p: 10, v: Math.min(1, n.prosp / 5), txt: `${n.prosp} de 5` }];
+  const nota = Math.round(itens.reduce((s, x) => s + x.p * x.v, 0));
+  const fraco = itens.slice().sort((a, b) => (a.v * a.p - a.p) - (b.v * b.p - b.p))[0];
+  const cor = nota >= 80 ? 'var(--ok)' : nota >= 50 ? 'var(--gold)' : 'var(--bad)', rot = nota >= 80 ? 'Em dia' : nota >= 50 ? 'Atenção' : 'Precisa reagir';
+  return { nota, itens, fraco, cor, rot };
+}
+function cardTermometro(vend, detalhe) {
+  const t = termometro(vend); if (!t) return '';
+  const linha = x => `<div style="display:grid;grid-template-columns:minmax(0,1fr) 92px;gap:8px;align-items:center"><div><div class="sub" style="display:flex;justify-content:space-between;gap:6px"><span>${x.t}</span><b>${x.txt}</b></div><div class="bar" style="height:6px"><i style="width:${Math.round(x.v * 100)}%;background:${x.v >= .8 ? 'var(--ok)' : x.v >= .5 ? 'var(--gold)' : 'var(--bad)'}"></i></div></div><span class="sub" style="text-align:right">${Math.round(x.v * x.p)} de ${x.p} pts</span></div>`;
+  return `<div class="card" style="border-left:4px solid ${t.cor}"><div class="row"><span class="name">🌡️ ${vend === S.eu ? 'Seu termômetro' : 'Termômetro de ' + esc(titulo(vend))}</span><b class="num" style="font-size:22px;color:${t.cor}">${t.nota}</b></div>
+   <div class="bar" role="img" aria-label="Termômetro ${t.nota} de 100" style="height:12px"><i style="width:${t.nota}%;background:${t.cor}"></i></div>
+   <div class="sub"><b style="color:${t.cor}">${t.rot}</b> · O que mais pesa agora: <b>${t.fraco.t.toLowerCase()}</b> (${t.fraco.txt}).</div>
+   ${detalhe ? t.itens.map(linha).join('') : `<button class="btn ghost sm" data-act="termo" data-v="${esc(vend)}" style="align-self:flex-start">Ver como a nota é feita</button>`}</div>`;
+}
+function telaTermometro(vend) {
+  vend = vend || S.eu;
+  return head(`${voltar()}<div class="hi">${vend === S.eu ? 'Como estão os seus trabalhos' : esc(titulo(vend))}</div><h1>Termômetro</h1>`) +
+  `<div class="main">${cardTermometro(vend, true)}<div class="fern"><span class="av">${FERN_SVG(44)}</span><div class="bal"><span class="quem">Fernandinho · como subir a nota</span><div class="fala">A nota vai de 0 a 100. <b>80 ou mais</b> é verde, <b>50 a 79</b> é atenção e <b>abaixo de 50</b> precisa reagir.</div><div class="dica">Pesos: contatos de ontem × meta 30 · carteira em dia 25 · vendas no ritmo do mês anterior 20 · retornos sem atraso 15 · pelo menos 5 prospecções ativas 10. Tudo é contado pelo que está registrado no app.</div></div></div>
+   <button class="btn ghost" data-act="cobranca" data-v="${esc(vend)}">📞 Abrir a agenda de contatos</button></div>`;
 }
 
 /* ---------- Fernandinho: a persona do CRM ---------- */
@@ -303,6 +335,7 @@ function telaAjuda() {
   ${bl('🗂️ As abas', ['<b>Pendências</b>: retornos de hoje, atrasados, próximos 7 dias, entregas atrasadas e avisos.', '<b>Carteira</b>: seus clientes. “Corrigir” envia ajuste de cadastro ao Cristiano.', '<b>Buscar</b>: antes de prospectar, veja se a empresa já é cliente ou se alguém já prospecta. Prefira o CNPJ.', '<b>Pedidos</b>: pedidos e O.F.s com saldo, entrega e notas. Em <b>📅 A faturar por data</b> você escolhe o período (ou as datas “de” e “até”) e vê as O.F.s que ainda faltam faturar, dia a dia.', '<b>Números</b>: vendas do mês.'])}
   ${bl('📦 Situação das O.F.s', ['<b>Em aberto</b>: nada faturado.', '<b>Parcial</b>: parte faturada.', '<b>Atendido · confirmar baixa</b>: dentro da tolerância de ±10%; a Carla confirma.', '<b>Concluído / Baixado</b>: entregue.', '<b>Atrasado</b>: passou da data com saldo.'])}
   ${bl('📞 Agenda de contatos', ['<b>Nenhum cliente pode ficar sem contato.</b> Todo cliente da carteira precisa de um contato registrado no app dentro do prazo.', 'Prazo: <b>30 dias</b> para Faixa A ou cliente que comprou/abriu em 2026 · <b>60 dias</b> para Faixa B · <b>180 dias</b> para os demais.', 'Retorno marcado para o futuro conta como contato em dia. “Sem interesse” volta para a agenda em 180 dias.', 'Em <b>Pendências</b>, o Fernandinho separa os <b>contatos de hoje</b>: a cota do dia para pôr a carteira em dia, começando pela Faixa A e por quem compra mais.', 'A agenda completa também abre em <b>Números</b> → Agenda de contatos. O Cristiano acompanha a equipe na aba Equipe.'])}
+  ${bl('🌡️ Termômetro', ['Nota de 0 a 100 de como estão os seus trabalhos: <b>80+</b> verde, <b>50–79</b> atenção, <b>abaixo de 50</b> precisa reagir.', 'Pesos: contatos de ontem × meta 30 · carteira em dia 25 · vendas no ritmo do mês anterior 20 · retornos sem atraso 15 · prospecção ativa (5 ou mais) 10.', 'Aparece em Pendências e em Números. O Cristiano vê o de todos na aba Equipe.'])}
   ${bl('🤖 Fernandinho', ['É o assistente do CRM: dá o recado do dia no topo da tela inicial (toque no × para fechar até amanhã).', 'Nos dias úteis, de hora em hora, lê as notas fiscais e liga cada uma à O.F. (cliente + FT + data).', 'Kits: vale a O.F. mãe (C/ Acessório); as filhas seguem a mãe.', 'Avisos aparecem no topo. Confira, corrija e só depois toque em <b>Resolvido</b>.'])}
   ${bl('📌 Observações do piloto', ['<b>A partir de 16/11/2026, contatos e prospecções são lançados só no app.</b> A planilha não é mais usada para contatos.', 'Registre cada ligação, visita ou WhatsApp com o cliente: é isso que conta na agenda de contatos.', 'Não lance em dois lugares.', 'Senha é pessoal; não passe para colegas.', 'Em computador de uso comum, toque em <b>Sair</b> no fim do dia.', 'Não mande print de carteira para fora da Fermani.', 'Viu algo errado? Mande um print ao Cristiano.'])}
   </div>`;
@@ -326,7 +359,7 @@ function telaPend() {
   const vazio = !atr.length && !hj.length && !prox.length;
   return head(topo(`<div class="hi">${saud}, ${esc(primeiro(S.eu))}</div><h1>Pendências de hoje</h1>
     <div class="kpis"><div class="kpi"><strong>${nHj}</strong><span>para hoje</span></div><div class="kpi${nAtr ? ' bad' : ''}"><strong>${nAtr}</strong><span>atrasadas</span></div><div class="kpi gold"><strong>${nP}</strong><span>em prospecção</span></div></div>`)) +
-  `<div class="main">${fernandinho()}<div class="chips" role="group" aria-label="Filtrar">${[['todas', 'Todas'], ['C', 'Carteira'], ['P', 'Prospecção e novos']].map(([k, t]) => `<button class="chip" data-act="filtro" data-v="${k}" aria-pressed="${f === k}">${t}</button>`).join('')}</div>
+  `<div class="main">${fernandinho()}${!gestor() ? cardTermometro(S.eu) : ''}<div class="chips" role="group" aria-label="Filtrar">${[['todas', 'Todas'], ['C', 'Carteira'], ['P', 'Prospecção e novos']].map(([k, t]) => `<button class="chip" data-act="filtro" data-v="${k}" aria-pressed="${f === k}">${t}</button>`).join('')}</div>
   ${blocoAvisos()}
   ${blocoCobranca()}
   ${(() => { const ea = itensAbertos(p => p.vendedor === S.eu).filter(x => x.s.atrasado); return ea.length ? `<div class="sec bad">Entregas atrasadas · ${ea.length}</div>` + ea.slice(0, 10).map(x => `<button class="card over" data-act="pedido" data-ref="${x.it.pedido}"><div class="row"><span class="name">${esc(nomeCli(x.p))}</span><span class="tag bad">Entrega ${dm(x.s.proxData)}</span></div><div class="txt">${esc(x.it.produto || '')} · saldo ${fmtQ(Math.max(x.s.saldo, 0))}</div><div class="sub">Pedido ${x.it.pedido} · O.F. ${esc(x.it.of)}</div></button>`).join('') : ''; })()}
@@ -397,6 +430,7 @@ function telaNumeros() {
   return head(topo(cabecalhoMes(n.tot, n.pm.length, n.totAnt, 'Meus números'))) +
   `<div class="main"><div class="card"><div class="stats"><div class="stat"><span>Clientes na carteira</span><b>${cart.length}</b></div><div class="stat"><span>Compraram em 2026</span><b>${ativos}</b></div><div class="stat"><span>Nunca contatados</span><b>${nunca}</b></div></div>
    <div class="stats"><div class="stat"><span>Contatos em 7 dias</span><b>${n.cont7}</b></div><div class="stat"><span>Prospecções ativas</span><b>${n.prosp}</b></div><div class="stat"><span>Atrasadas</span><b>${n.atr}</b></div></div></div>
+   ${cardTermometro(S.eu, true)}
    <button class="btn ghost" data-act="cobranca">📞 Agenda de contatos · ${cobranca(S.eu).atras.length} fora do prazo</button>
    <div class="sec">Pedidos do mês</div>
    ${n.pm.length ? n.pm.slice().sort((a, b) => b.numero - a.numero).map(p => `<div class="card"><div class="row"><span class="name">${esc(p.cliente)}</span><b class="num">${brl(p.valor)}</b></div><div class="sub">Pedido ${esc(p.numero)} · ${dm(p.data)}</div></div>`).join('') : '<div class="empty"><b>Nenhum pedido no mês ainda</b><span>Os pedidos entram a cada atualização do CRM.</span></div>'}</div>`;
@@ -1021,6 +1055,7 @@ function render() {
     else if (v && v.t === 'prel') html = telaPcpRel();
     else if (v && v.t === 'fluxo') html = telaFluxo();
     else if (v && v.t === 'cobranca') html = telaCobranca(v.vend);
+    else if (v && v.t === 'termo') html = telaTermometro(v.vend);
     else html = ({ pend: telaPend, cart: telaCarteira, busca: telaBusca, ped: telaPedidos, num: gestor() ? telaEquipe : telaNumeros, entregas: telaEntregas, nfs: telaNFs, prog: veTudo() ? telaProg : telaPend })[S.tab]();
     const abas = suporte() ? [['entregas', 'truck', 'Entregas'], ['ped', 'box', 'Pedidos'], ['nfs', 'doc', 'Notas fiscais'], ['prog', 'cog', 'PCP']]
       : [['pend', 'cal', 'Pendências'], ['cart', 'users', 'Carteira'], ['busca', 'search', 'Buscar'], ['ped', 'box', 'Pedidos'], ['num', 'chart', gestor() ? 'Equipe' : 'Números']].concat(gestor() ? [['prog', 'cog', 'PCP']] : []);
@@ -1070,6 +1105,7 @@ document.addEventListener('click', async e => {
   else if (a === 'avisook') { await resolverAviso(b.dataset.ref); }
   else if (a === 'cobranca') { S.fcob = 'atras'; S.qcob = ''; ir({ t: 'cobranca', vend: v || S.eu }); }
   else if (a === 'fcob') { S.fcob = v; S._keep = true; render(); }
+  else if (a === 'termo') ir({ t: 'termo', vend: v || S.eu });
   else if (a === 'cobnova') { const t = val('cob_t'), su = val('cob_s'); if (!t || !su || t === su) { toast('Escolha quem está de férias e quem cobre.'); return; }
     const { data, error } = await sb.from('cobertura').insert({ titular: t, substituto: su, ate: val('cob_ate') || null }).select().single(); if (error) { toast('Não foi possível salvar: ' + error.message); return; }
     (S.cob = S.cob || []).push(data); COB = null; S._keep = true; render(); toast('Cobertura salva. Peça para ' + titulo(su) + ' sair e entrar no app para ver a carteira.'); }
