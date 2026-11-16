@@ -340,10 +340,12 @@ const trQuando = d => new Date(d).toLocaleString('pt-BR', { day: '2-digit', mont
 const trAtivos = () => (S.trein || []).filter(t => t.ativo !== false).sort((a, b) => (a.publicado || '') < (b.publicado || '') ? -1 : 1);
 const trReg = (t, nome, tipo) => (S.treg || []).find(r => r.treinamento_id === t.id && r.nome === nome && r.tipo === tipo);
 const trPublico = (t, depto) => !!depto && (t.departamentos || []).some(x => String(x).toLowerCase() === String(depto).toLowerCase());
+const trExpediente = (d = new Date()) => { const w = d.getDay(), m = d.getHours() * 60 + d.getMinutes(); return w >= 1 && w <= 5 && m >= 380 && m <= 930; };
 function trPendente() {
   if (S.tela !== 'app' || !S.carregado) return null;
   for (const t of trAtivos()) {
     if (!trPublico(t, S.depto) || trReg(t, S.eu, 'assinado')) continue;
+    if (t.tipo === 'pcp' && !trExpediente()) continue;
     const ad = trReg(t, S.eu, 'adiado'), ate = ad ? new Date(new Date(ad.criado).getTime() + TR_TOLER_H * 3600e3) : null;
     return { t, ad, ate, bloqueia: !ad || ate <= new Date() };
   }
@@ -352,7 +354,7 @@ function trPendente() {
 function telaTreinGate(p) {
   const t = p.t, n = (t.slides || []).length, ate = new Date(Date.now() + TR_TOLER_H * 3600e3);
   return head(topo(`<div class="hi">${esc(primeiro(S.eu))}, antes de continuar</div><h1>🎓 Temos novidades!</h1>`)) +
-  `<div class="main"><div class="fern"><span class="av">${FERN_SVG(44)}</span><div class="bal"><span class="quem">Fernandinho · treinamento</span><div class="fala">O app ganhou novidades. Veja a apresentação <b>${esc(t.titulo)}</b> (${n} telas, cerca de ${t.carga_min || 30} min) e assine no fim.</div><div class="dica">${p.ad ? 'O prazo do “Ver depois” terminou. O app volta a abrir assim que você assinar.' : 'Está no meio de um atendimento? Toque em “Ver depois”: vale uma única vez, por 24 horas.'}</div></div></div>
+  `<div class="main"><div class="fern"><span class="av">${FERN_SVG(44)}</span><div class="bal"><span class="quem">${t.tipo === 'pcp' ? 'Paula · PCP · aviso' : 'Fernandinho · treinamento'}</span><div class="fala">${t.tipo === 'pcp' ? 'A programação mudou. Veja o resumo' : 'O app ganhou novidades. Veja a apresentação'} <b>${esc(t.titulo)}</b> (${n} telas, cerca de ${t.carga_min || 30} min) e assine no fim.</div><div class="dica">${p.ad ? 'O prazo do “Ver depois” terminou. O app volta a abrir assim que você assinar.' : 'Está no meio de um atendimento? Toque em “Ver depois”: vale uma única vez, por 24 horas.'}</div></div></div>
    <button class="btn" data-act="trver" data-ref="${t.id}">Ver a apresentação agora</button>
    ${p.ad ? '' : `<button class="btn ghost" data-act="tradiar" data-ref="${t.id}">Ver depois (uma vez só, até ${trQuando(ate)})</button>`}
    <div class="sub">Este treinamento fica registrado em Cursos e treinamentos da Fermani.</div></div>`;
