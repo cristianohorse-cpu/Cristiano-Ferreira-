@@ -73,7 +73,7 @@ async function carregar() {
   if (S.papel === 'gestor' || S.papel === 'suporte') { try { S.prog = await todos('programacao'); } catch (e) { S.prog = []; } try { S.prel = await todos('pcp_relatorio'); } catch (e) { S.prel = []; } }
   if (S.papel === 'gestor') { try { S.real = await todos('programacao_real'); } catch (e) { S.real = []; } }
   if (S.papel === 'gestor' || S.papel === 'suporte') { try { S.apont = await todos('apontamentos'); S.apontEm = new Date(); } catch (e) { S.apont = []; } }
-  FX = null; COB = null; S.carregado = true;
+  FX = null; COB = null; VALIT = null; S.carregado = true;
 }
 const gestor = () => S.papel === 'gestor';
 const meus = l => l.filter(x => (x.resp || x.vendedor) === S.eu);
@@ -564,26 +564,149 @@ function telaNumeros() {
    <div class="sec">Pedidos do mês</div>
    ${n.pm.length ? n.pm.slice().sort((a, b) => b.numero - a.numero).map(p => `<div class="card"><div class="row"><span class="name">${esc(p.cliente)}</span><b class="num">${brl(p.valor)}</b></div><div class="sub">Pedido ${esc(p.numero)} · ${dm(p.data)}</div></div>`).join('') : '<div class="empty"><b>Nenhum pedido no mês ainda</b><span>Os pedidos entram a cada atualização do CRM.</span></div>'}</div>`;
 }
+/* ---------- Dashboard Comercial (decisão de 19/11/2026) ----------
+   Mesma conta para a tela e para o resumo automático (window.__dashResumo).
+   Vendas fechadas = valor dos pedidos (sem IPI) emitidos no período.
+   Faturamento realizado = valor dos produtos nas notas fiscais lançadas no CRM (sem IPI, mesma base dos pedidos), pela data de emissão.
+   Previsão do mês = faturamento do mês + saldo em aberto dos itens com entrega prevista até o fim do mês (só o que falta faturar: sem contar duas vezes).
+   Meta comercial: R$ 1,5 milhão por mês, da empresa, comparada com as vendas fechadas. Só o gestor vê. */
+const META_MES = 1500000;
+const iso10 = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+function dashPeriodo(k, de, ate) {
+  const h = new Date(), y = h.getFullYear(), m = h.getMonth();
+  if (k === 'mesant') return { k, de: iso10(new Date(y, m - 1, 1)), ate: iso10(new Date(y, m, 0)), rot: MESES[(m + 11) % 12] + ' (mês anterior)', mes: true };
+  if (k === '7d') return { k, de: addDias(-6), ate: hoje(), rot: 'Últimos 7 dias' };
+  if (k === 'ano') return { k, de: y + '-01-01', ate: hoje(), rot: 'Ano de ' + y };
+  if (k === 'livre' && de && ate) return { k, de, ate, rot: dm(de) + '/' + de.slice(0, 4) + ' a ' + dm(ate) + '/' + ate.slice(0, 4) };
+  return { k: 'mes', de: iso10(new Date(y, m, 1)), ate: iso10(new Date(y, m + 1, 0)), rot: MESES[m] + ' de ' + y, mes: true, atual: true };
+}
+let VALIT = null;
+function valorItens() {
+  if (VALIT) return VALIT;
+  const v = new Map(), est = new Set(), por = {};
+  S.itens.forEach(i => (por[i.pedido] = por[i.pedido] || []).push(i));
+  Object.entries(por).forEach(([n, its]) => {
+    const p = pedidoDe(n) || {}, tot = Number(p.valor) || 0;
+    const com = its.filter(i => Number(i.kg) > 0 && Number(i.pm) > 0), sem = its.filter(i => !(Number(i.kg) > 0 && Number(i.pm) > 0));
+    com.forEach(i => v.set(i, Number(i.kg) * Number(i.pm)));
+    const resto = Math.max(0, tot - com.reduce((s, i) => s + v.get(i), 0)), q = sem.reduce((s, i) => s + (Number(i.qtd) || 0), 0);
+    sem.forEach(i => { v.set(i, q ? resto * (Number(i.qtd) || 0) / q : resto / sem.length); if (its.length > 1) est.add(i); });
+  });
+  return (VALIT = { v, est });
+}
+function vendNF(n, x) {
+  if (x && x.pedido) { const p = pedidoDe(x.pedido); if (p) return p.vendedor; }
+  const r = dig(n.cnpj).slice(0, 8), c = r.length === 8 && S.clientes.find(c => dig(c.cnpj).slice(0, 8) === r);
+  return c ? c.resp : 'SEM VENDEDOR';
+}
+function dashCalc(per, vend) {
+  const { v: VAL, est } = valorItens(), h = hoje(), ok = x => !vend || x === vend;
+  const linha = () => ({ vendas: 0, nped: 0, fat: 0, fatNF: 0, saldo: 0, atras: 0 });
+  const porV = {}, L = n => (porV[n] = porV[n] || linha());
+  const T = linha();
+  S.pedidos.filter(p => p.data >= per.de && p.data <= per.ate && ok(p.vendedor)).forEach(p => { const x = L(p.vendedor); x.vendas += +p.valor || 0; x.nped++; T.vendas += +p.valor || 0; T.nped++; });
+  const nfsP = S.nfs.filter(n => n.data >= per.de && n.data <= per.ate);
+  let semPed = 0, semVend = 0, nNF = 0;
+  nfsP.forEach(n => {
+    const its = S.nfItens.filter(x => x.chave === n.chave); let conta = false;
+    if (!its.length) { const vd = vendNF(n); if (ok(vd)) { L(vd).fat += +n.valor || 0; T.fat += +n.valor || 0; conta = true; } }
+    its.forEach(x => { const vd = vendNF(n, x); if (!ok(vd)) return; const val = +x.valor || 0; L(vd).fat += val; T.fat += val; conta = true; if (!x.pedido) semPed += val; if (vd === 'SEM VENDEDOR') semVend += val; });
+    if (conta) { nNF++; const vd = vendNF(n, its[0]); L(vd).fatNF += +n.valor || 0; T.fatNF += +n.valor || 0; }
+  });
+  // previsão: só para o mês atual
+  const fimMes = per.atual ? per.ate : null, semData = [], prev = [];
+  let nEst = 0;
+  if (fimMes) S.itens.forEach(i => {
+    const p = pedidoDe(i.pedido) || {}; if (!ok(p.vendedor)) return;
+    const s = situacao(i); if (!s.aberto || s.saldo <= 0 || !s.qtd) return;
+    const val = (VAL.get(i) || 0) * s.saldo / s.qtd;
+    if (!s.proxData) { semData.push({ i, p, val }); return; }
+    if (s.proxData > fimMes) return;
+    const x = L(p.vendedor); x.saldo += val; T.saldo += val;
+    if (s.proxData < h) { x.atras += val; T.atras += val; }
+    if (est.has(i)) nEst++;
+    prev.push({ i, p, val, d: s.proxData, atr: s.proxData < h });
+  });
+  const opp = S.prosp.filter(p => ok(p.vendedor) && ![...FIM, 'Pedido fechado'].includes(p.etapa));
+  const meta = per.mes && !vend ? META_MES : null;
+  // conferência dos dados
+  const avisos = [], ultPed = S.pedidos.reduce((m, p) => p.data > m ? p.data : m, ''), ultNF = S.nfs.reduce((m, n) => n.data > m ? n.data : m, '');
+  const ultLanc = S.nfs.reduce((m, n) => (n.em || '') > m ? n.em : m, ''), dUtil = diaUtilAnterior();
+  if (ultPed < dUtil) avisos.push({ ind: 'Vendas fechadas e previsão', txt: `O último pedido no CRM é de ${dm(ultPed)}. Pedidos emitidos depois disso ainda não entraram: atualize o relatório de pedidos do PCBOOT.` });
+  if (!ultLanc || ultLanc.slice(0, 10) < dUtil) avisos.push({ ind: 'Faturamento realizado', txt: `A última nota fiscal lançada no CRM é de ${dm(ultNF)} (lançamento em ${ultLanc ? dm(ultLanc.slice(0, 10)) : '–'}). Notas emitidas depois disso estão só no PCBOOT e não entram no faturamento.` });
+  if (semVend > 0) avisos.push({ ind: 'Faturamento por vendedor', txt: `${brl(semVend)} em notas sem pedido e com CNPJ fora da carteira: aparecem em "Sem vendedor". Ligue a nota ao pedido na tela da NF.` });
+  if (semData.length) avisos.push({ ind: 'Previsão do mês', txt: `${semData.length} ${semData.length === 1 ? 'item em aberto está' : 'itens em aberto estão'} sem data de entrega (${brl(semData.reduce((s, x) => s + x.val, 0))}) e não ${semData.length === 1 ? 'entra' : 'entram'} na previsão.` });
+  if (nEst) avisos.push({ ind: 'Previsão do mês', txt: `${nEst} ${nEst === 1 ? 'item' : 'itens'} da previsão sem peso e preço no pedido: valor estimado pela parte do pedido.` });
+  const soma = Object.values(porV).reduce((s, x) => s + x.vendas, 0);
+  if (Math.abs(soma - T.vendas) > 1) avisos.push({ ind: 'Vendas fechadas', txt: 'A soma por vendedor não bate com o total. Avise o Fernandinho.' });
+  return { per, vend, T, porV, prev, semData, opp, meta, avisos, ultPed, ultNF, ultLanc, nNF, semPed, calc: new Date() };
+}
+function dashTela() {
+  const per = dashPeriodo(S.dper || 'mes', S.dde, S.date), vend = S.dvend || '', d = dashCalc(per, vend), T = d.T;
+  const vends = [...new Set(S.pedidos.map(p => p.vendedor).filter(Boolean))].sort();
+  const kpi = (rot, val, sub, cor) => `<div class="kpi"${cor ? ` style="border-top:3px solid ${cor}"` : ''}><span>${rot}</span><strong class="num">${val}</strong><small>${sub}</small></div>`;
+  const pctMeta = d.meta ? T.vendas / d.meta : 0;
+  const prevTot = T.fat + T.saldo;
+  const linhas = Object.entries(d.porV).filter(([n, x]) => x.vendas || x.fat || x.saldo).sort((a, b) => b[1].vendas - a[1].vendas);
+  return `<div class="card dash"><div class="row"><span class="h2" style="margin:0">📊 Dashboard Comercial</span><span class="sub">${esc(per.rot)}</span></div>
+   <div class="dfil"><div class="field"><label for="dper">Período</label><select id="dper">${[['mes', 'Mês atual'], ['mesant', 'Mês anterior'], ['7d', 'Últimos 7 dias'], ['ano', 'Ano'], ['livre', 'Escolher datas']].map(([k, t]) => `<option value="${k}"${per.k === k ? ' selected' : ''}>${t}</option>`).join('')}</select></div>
+   <div class="field"><label for="dvend">Vendedor</label><select id="dvend"><option value="">Todos</option>${vends.map(v => `<option value="${esc(v)}"${v === vend ? ' selected' : ''}>${esc(titulo(v))}</option>`).join('')}</select></div></div>
+   ${per.k === 'livre' || S.dper === 'livre' ? `<div class="dfil"><div class="field"><label for="dde">De</label><input id="dde" type="date" value="${esc(S.dde || per.de)}"></div><div class="field"><label for="date">Até</label><input id="date" type="date" value="${esc(S.date || per.ate)}"></div></div>` : ''}
+   <div class="dkpis">
+    ${kpi('Vendas fechadas', brl(T.vendas), `${T.nped} pedidos`, 'var(--petrol)')}
+    ${kpi('Faturamento realizado', brl(T.fat), `${d.nNF} notas · ${brl(T.fatNF)} com impostos`, 'var(--ok)')}
+    ${per.atual ? kpi('Previsão do mês', brl(prevTot), `faturado + ${brl(T.saldo)} a faturar até ${dm(per.ate)}${T.atras ? ` (${brl(T.atras)} atrasado)` : ''}`, 'var(--gold)') : kpi('Previsão do mês', '–', 'só no mês atual', '')}
+    ${d.meta ? kpi('Meta comercial', (pctMeta * 100).toFixed(1).replace('.', ',') + '%', `${brl(T.vendas)} de ${brl(d.meta)} · faltam ${brl(Math.max(0, d.meta - T.vendas))}`, pctMeta >= 1 ? 'var(--ok)' : 'var(--bad)') : kpi('Meta comercial', '–', vend ? 'meta é da empresa: tire o filtro de vendedor' : 'só para mês fechado', '')}
+   </div>
+   ${d.meta ? `<div class="bar" role="img" aria-label="Meta ${Math.round(pctMeta * 100)}% atingida" style="height:10px;background:var(--chip)"><i style="width:${Math.min(100, pctMeta * 100)}%;background:${pctMeta >= 1 ? 'var(--ok)' : 'var(--gold)'}"></i></div>` : ''}
+   ${d.avisos.length ? `<div class="alert"><span class="lbl">⚠️ CONFERIR ANTES DE USAR OS NÚMEROS · ${d.avisos.length}</span>${d.avisos.map(a => `<span class="txt"><b>${esc(a.ind)}:</b> ${esc(a.txt)}</span>`).join('')}</div>` : `<div class="sub" style="color:var(--ok)">✅ Dados conferidos: pedidos e notas em dia.</div>`}
+   <div class="h2" style="margin-top:4px">Por vendedor</div>
+   <div class="scroll"><table class="tbl"><thead><tr><th>Vendedor</th><th style="text-align:right">Vendas</th><th style="text-align:right">Faturado</th>${per.atual ? '<th style="text-align:right">A faturar no mês</th>' : ''}${d.meta ? '<th style="text-align:right">% da meta</th>' : ''}</tr></thead><tbody>
+   ${linhas.map(([n, x]) => `<tr><td>${esc(titulo(n))}</td><td class="n">${brl(x.vendas)}</td><td class="n">${brl(x.fat)}</td>${per.atual ? `<td class="n">${brl(x.saldo)}</td>` : ''}${d.meta ? `<td class="n">${(x.vendas / d.meta * 100).toFixed(1).replace('.', ',')}%</td>` : ''}</tr>`).join('') || `<tr><td colspan="5" class="sub">Nada no período.</td></tr>`}
+   <tr style="font-weight:700"><td>Total</td><td class="n">${brl(T.vendas)}</td><td class="n">${brl(T.fat)}</td>${per.atual ? `<td class="n">${brl(T.saldo)}</td>` : ''}${d.meta ? `<td class="n">${(T.vendas / d.meta * 100).toFixed(1).replace('.', ',')}%</td>` : ''}</tr>
+   </tbody></table></div>
+   ${d.semData.length ? `<details><summary class="sub"><b>Sem data de entrega · ${d.semData.length}</b> (fora da previsão)</summary>${d.semData.slice(0, 30).map(x => `<button class="kv link" data-act="pedido" data-ref="${x.i.pedido}" style="width:100%"><span>Pedido ${x.i.pedido} · O.F. ${esc(x.i.of)} · ${esc(titulo(x.p.vendedor || ''))}</span><span>${brl(x.val)}</span></button>`).join('')}</details>` : ''}
+   <div class="h2" style="margin-top:4px">Oportunidades em aberto <span class="sub">(fora da previsão)</span></div>
+   <div class="sub">${d.opp.length} prospecções ativas${d.opp.length ? ': ' + Object.entries(d.opp.reduce((m, p) => (m[p.etapa || 'Sem etapa'] = (m[p.etapa || 'Sem etapa'] || 0) + 1, m), {})).sort((a, b) => b[1] - a[1]).map(([e, n]) => `${esc(e)} ${n}`).join(' · ') : ''}</div>
+   <div class="sub">Calculado às ${pad(d.calc.getHours())}:${pad(d.calc.getMinutes())} · pedidos até ${dm(d.ultPed)} · notas até ${dm(d.ultNF)}. Valores sem IPI, mesma base dos pedidos. Faturamento pelas notas lançadas no CRM.</div></div>`;
+}
+(function () { const st = document.createElement('style'); st.textContent = '.dash{gap:10px}.dfil{display:grid;grid-template-columns:1fr 1fr;gap:8px}.dkpis{display:grid;grid-template-columns:1fr 1fr;gap:8px}.dkpis .kpi{background:var(--bg);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}.dkpis .kpi span{font-size:12px;color:var(--muted);font-weight:600}.dkpis .kpi strong{font-size:22px;line-height:1.15}.dkpis .kpi small{font-size:12px;color:var(--muted);line-height:1.3}@media(min-width:720px){.dkpis{grid-template-columns:repeat(4,1fr)}}details.eqd{background:var(--card);border-radius:14px;padding:12px 14px}details.eqd>summary{cursor:pointer;font-weight:700;color:var(--petrol)}details.eqd[open]>summary{margin-bottom:10px}'; document.head.appendChild(st); })();
+/* resumo automático: mesma conta da tela. Usado pela tarefa agendada (window.__dashResumo). */
+window.__crmPronto = () => !!(S.carregado && gestor());
+window.__dashResumo = function () {
+  const per = dashPeriodo('mes'), d = dashCalc(per, ''), T = d.T, f = v => 'R$ ' + Math.round(v).toLocaleString('pt-BR');
+  const linhas = Object.entries(d.porV).filter(([n, x]) => x.vendas || x.fat || x.saldo).sort((a, b) => b[1].vendas - a[1].vendas);
+  return { periodo: per.rot, calculado: d.calc.toLocaleString('pt-BR'), ultPedido: d.ultPed, ultNota: d.ultNF, ultLancamento: d.ultLanc,
+    vendas: T.vendas, pedidos: T.nped, faturado: T.fat, faturadoComImpostos: T.fatNF, notas: d.nNF, aFaturarNoMes: T.saldo, atrasado: T.atras, previsao: T.fat + T.saldo,
+    meta: d.meta, pctMeta: d.meta ? T.vendas / d.meta : null, faltaMeta: d.meta ? Math.max(0, d.meta - T.vendas) : null,
+    semData: d.semData.length, semDataValor: d.semData.reduce((s, x) => s + x.val, 0), oportunidades: d.opp.length,
+    porVendedor: linhas.map(([n, x]) => ({ vendedor: titulo(n), vendas: x.vendas, pedidos: x.nped, faturado: x.fat, aFaturar: x.saldo, pctMeta: d.meta ? x.vendas / d.meta : null })),
+    avisos: d.avisos,
+    texto: [`Resumo comercial · ${per.rot} · calculado em ${d.calc.toLocaleString('pt-BR')}`, '',
+      `Vendas fechadas: ${f(T.vendas)} (${T.nped} pedidos)`, `Faturamento realizado: ${f(T.fat)} (${d.nNF} notas; ${f(T.fatNF)} com impostos)`,
+      `Previsão do mês: ${f(T.fat + T.saldo)} = faturado + ${f(T.saldo)} a faturar até ${dm(per.ate)}${T.atras ? ` (${f(T.atras)} já atrasado)` : ''}`,
+      d.meta ? `Meta: ${f(d.meta)} · ${Math.round(T.vendas / d.meta * 100)}% atingido · faltam ${f(Math.max(0, d.meta - T.vendas))}` : '',
+      `Oportunidades em aberto (fora da previsão): ${d.opp.length} prospecções`, '', 'Por vendedor (vendas · faturado · a faturar no mês):',
+      ...linhas.map(([n, x]) => `- ${titulo(n)}: ${f(x.vendas)} · ${f(x.fat)} · ${f(x.saldo)}`), '',
+      d.avisos.length ? 'Conferir: ' + d.avisos.map(a => `${a.ind}: ${a.txt}`).join(' | ') : 'Dados conferidos: pedidos e notas em dia.',
+      `Base: pedidos até ${dm(d.ultPed)}, notas até ${dm(d.ultNF)}. Valores sem IPI.`].filter(x => x !== null).join('\n') };
+};
 function telaEquipe() {
   const g = numerosDe(null);
-  const nomes = [...new Set(S.clientes.map(c => c.resp).concat(S.pedidos.map(p => p.vendedor)).filter(Boolean))].sort();
-  const linhas = nomes.map(v => Object.assign({ v }, numerosDe(v))).sort((a, b) => b.tot - a.tot);
   const conflitos = S.prosp.filter(p => !FIM.includes(p.etapa) && p.cnpj && S.clientes.some(c => c.resp !== p.vendedor && dig(c.cnpj).slice(0, 8) === dig(p.cnpj).slice(0, 8) && dig(p.cnpj).length >= 8));
-  return head(topo(cabecalhoMes(g.tot, g.pm.length, g.totAnt, 'Equipe'))) +
-  `<div class="main"><div class="card"><div class="stats"><div class="stat"><span>Atrasadas</span><b style="color:var(--bad)">${g.atr}</b></div><div class="stat"><span>Contatos em 7 dias</span><b>${g.cont7}</b></div><div class="stat"><span>Prospecções ativas</span><b>${g.prosp}</b></div></div></div>
-   <div class="card"><div class="h2">Vendedores no mês</div><div class="scroll"><table class="tbl"><thead><tr><th>Vendedor</th><th style="text-align:right">Vendas</th><th style="text-align:right">Ped.</th><th style="text-align:right">Contatos 7d</th><th style="text-align:right">Atras.</th></tr></thead><tbody>
-   ${linhas.map(l => `<tr><td>${esc(titulo(l.v))}</td><td class="n">${brl(l.tot)}</td><td class="n">${l.pm.length}</td><td class="n">${l.cont7}</td><td class="n"${l.atr ? ' style="color:var(--bad);font-weight:600"' : ''}>${l.atr}</td></tr>`).join('')}
-   </tbody></table></div></div>
-   ${blocoCobrancaEquipe()}
-   ${blocoTreinEquipe()}
+  const ab = k => S.eqAberto && S.eqAberto[k] ? ' open' : '';
+  return head(topo(`<div class="hi">Acompanhamento da equipe</div><h1>Equipe</h1>`)) +
+  `<div class="main">${dashTela()}
    ${conflitos.length ? `<div class="alert"><span class="lbl">PROSPECÇÃO EM CLIENTE DE OUTRO VENDEDOR · ${conflitos.length}</span>${conflitos.slice(0, 8).map(p => `<span class="txt">${esc(p.nome)} · ${esc(titulo(p.vendedor))}</span>`).join('')}</div>` : ''}
-   <div class="sec">Pedidos e faturamento</div>
-   <button class="btn ghost" data-act="irtab" data-v="entregas">${svg('truck', 18)} Entregas com saldo</button>
-   <button class="btn ghost" data-act="irtab" data-v="nfs">${svg('doc', 18)} Notas fiscais</button>
-   <div class="sec">Administração</div>
-   <button class="btn ghost" data-act="acessos">Acessos da equipe</button>
-   <button class="btn ghost" data-act="importar">Importar dados (clientes e pedidos)</button>
-   <button class="btn ghost" data-act="correcoes">Correções enviadas pelos vendedores · ${S.corr.length}</button></div>`;
+   <details class="eqd" data-k="cont"${ab('cont')}><summary>📞 Contatos, termômetro e férias · ${g.atr} retornos atrasados</summary><div style="display:flex;flex-direction:column;gap:10px"><div class="card"><div class="stats"><div class="stat"><span>Retornos atrasados</span><b style="color:var(--bad)">${g.atr}</b></div><div class="stat"><span>Contatos em 7 dias</span><b>${g.cont7}</b></div><div class="stat"><span>Prospecções ativas</span><b>${g.prosp}</b></div></div></div>${blocoCobrancaEquipe()}</div></details>
+   <details class="eqd" data-k="trein"${ab('trein')}><summary>🎓 Cursos e treinamentos</summary>${blocoTreinEquipe()}</details>
+   <details class="eqd" data-k="ped"${ab('ped')}><summary>📦 Pedidos e faturamento</summary><div style="display:flex;flex-direction:column;gap:8px">
+    <button class="btn ghost" data-act="irtab" data-v="entregas">${svg('truck', 18)} Entregas com saldo</button>
+    <button class="btn ghost" data-act="irtab" data-v="nfs">${svg('doc', 18)} Notas fiscais</button></div></details>
+   <details class="eqd" data-k="adm"${ab('adm')}><summary>⚙️ Administração</summary><div style="display:flex;flex-direction:column;gap:8px">
+    <button class="btn ghost" data-act="acessos">Acessos da equipe</button>
+    <button class="btn ghost" data-act="importar">Importar dados (clientes e pedidos)</button>
+    <button class="btn ghost" data-act="correcoes">Correções enviadas pelos vendedores · ${S.corr.length}</button></div></details></div>`;
 }
 function telaAcessos() {
   const l = S.vendedores.slice().sort((a, b) => a.nome < b.nome ? -1 : 1);
@@ -1274,8 +1397,12 @@ document.addEventListener('input', e => {
   if (e.target.id === 'qrel') { S.qrel = e.target.value; S._keep = true; render(); }
   if (e.target.id === 'qfx') { S.qfx = e.target.value; S._keep = true; render(); }
 });
+document.addEventListener('toggle', e => { const t = e.target; if (t && t.classList && t.classList.contains('eqd')) { S.eqAberto = S.eqAberto || {}; S.eqAberto[t.dataset.k] = t.open; } }, true);
 document.addEventListener('change', async e => {
   if (e.target.id === 'fvend') { S.fvend = e.target.value; S._keep = true; render(); return; }
+  if (e.target.id === 'dper') { S.dper = e.target.value; if (S.dper === 'livre' && !S.dde) { const p0 = dashPeriodo('mes'); S.dde = p0.de; S.date = hoje(); } S._keep = true; render(); return; }
+  if (e.target.id === 'dvend') { S.dvend = e.target.value; S._keep = true; render(); return; }
+  if (e.target.id === 'dde' || e.target.id === 'date') { S.dde = val('dde'); S.date = val('date'); S._keep = true; render(); return; }
   if (e.target.id === 'afde' || e.target.id === 'afate') { S.afDe = val('afde'); S.afAte = val('afate'); S._keep = true; render(); return; }
   if (e.target.id === 'nm_ped') { S.form.num = val('nm_num'); S.form.data = val('nm_data'); S.form.pedido = val('nm_ped'); S._keep = true; render(); return; }
   if (e.target.id === 'vpct') { await acaoPedidos('vpct', e.target); return; }
